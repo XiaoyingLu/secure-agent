@@ -1,0 +1,17 @@
+[project]
+name = "secure-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.136.1",
+    "httpx>=0.26.0",
+    "load-dotenv>=0.1.0",
+    "msal>=1.36.0",
+    "pyjwt[crypto]>=2.12.1",
+    "pytest>=9.0.3",
+    "requests>=2.34.2",
+    "uvicore>=0.2.3",
+    "uvicorn>=0.47.0",
+]
