@@ -1,6 +1,6 @@
 import jwt
 import os
-from load_dotenv import load_dotenv
+from dotenv import load_dotenv
 import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -79,7 +79,7 @@ async def validate_azure_token(credentials: HTTPAuthorizationCredentials = Depen
             token,
             key=rsa_key,
             algorithms=["RS256"],
-        audience=ALLOWED_AUDIENCES,
+            audience=ALLOWED_AUDIENCES,
             issuer=AZURE_ISSUER
         )
         
