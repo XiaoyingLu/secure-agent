@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "secure-agent"
 version = "0.1.0"
@@ -5,6 +9,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "azure-ai-agents>=1.1.0",
+    "azure-ai-contentsafety>=1.0.0",
+    "azure-ai-projects>=1.0.0b12",
+    "azure-identity>=1.25.0",
+    "azure-keyvault-secrets>=4.10.0",
     "fastapi>=0.136.1",
     "fastmcp>=0.12.0",
     "httpx>=0.28.1",
@@ -12,9 +21,29 @@ dependencies = [
     "load-dotenv>=0.1.0",
     "mcp>=1.2.0",
     "msal>=1.36.0",
+    "presidio-analyzer>=2.2.360",
     "pyjwt[crypto]>=2.12.1",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
+    "pytest-mock>=3.15.0",
     "requests>=2.34.2",
     "uvicorn>=0.47.0",
+]
+
+[project.scripts]
+secure-agent = "main:run_server"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["main", "config", "mcp_server"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: tests that require live external services",
 ]
