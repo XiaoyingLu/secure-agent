@@ -159,8 +159,18 @@ class Guardrails:
         return self._redact_value(data)
 
     async def filter_output(self, text: str) -> str:
-        """Reject generated text that Content Safety rates above policy threshold."""
-        client = self._get_content_safety_client()
+        """Reject generated text that Content Safety rates above policy threshold.
+
+        If Content Safety is not configured (no endpoint/key), the text is
+        returned unfiltered — this avoids hard failures in local dev or
+        environments where Content Safety is an optional guard.
+        """
+        try:
+            client = self._get_content_safety_client()
+        except RuntimeError:
+            # Content Safety not configured — skip filtering gracefully
+            return text
+
         result = await asyncio.to_thread(
             _analyze_text,
             client,

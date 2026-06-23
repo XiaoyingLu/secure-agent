@@ -16,8 +16,10 @@ from typing import Any
 
 from azure.identity import DefaultAzureCredential
 
+from dotenv import load_dotenv
 from tools.base_tool import BaseTool
 from agent.guardrails import Guardrails
+from auth.obo_client import OBOClient
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +37,7 @@ class AgentResponse:
     """Response returned by :class:`FoundryAgent.chat`."""
 
     text: str
-    thread_id: str
-    run_id: str
+    conversation_id: str
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -83,7 +84,15 @@ class FoundryAgent:
         if len(self._tool_map) != len(self.tools):
             raise ValueError("Tool names must be unique")
 
-        from azure.ai.agents.models import FunctionDefinition, FunctionToolDefinition
+        self._agent_name = agent_name
+        self._obo_client = OBOClient(
+            tenant_id=os.getenv("ENTRA_TENANT_ID", ""),
+            client_id=os.getenv("ENTRA_CLIENT_ID", ""),
+            client_secret=os.getenv("ENTRA_CLIENT_SECRET", ""),
+        )
+        self.GRAPH_SCOPES = ["https://graph.microsoft.com/.default"]
+
+        from azure.ai.projects.models import FunctionTool, PromptAgentDefinition, Tool
         from azure.ai.projects import AIProjectClient
 
         self._client = AIProjectClient(
@@ -91,21 +100,23 @@ class FoundryAgent:
             credential=credential or DefaultAzureCredential(),
         )
         self._agents = self._client.agents
-        self._agent = self._agents.create_agent(
+        self._openai = self._client.get_openai_client()
+
+        tools: list[Tool] = [
+            FunctionTool(
+                name=tool.name,
+                description=tool.description,
+                parameters=tool.input_schema(),
+                strict=False,
+            )
+            for tool in self.tools
+        ]
+        definition = PromptAgentDefinition(
             model=self.model_deployment_name,
-            name=agent_name,
             instructions=self.system_prompt,
-            tools=[
-                FunctionToolDefinition(
-                    function=FunctionDefinition(
-                        name=tool.name,
-                        description=tool.description,
-                        parameters=tool.input_schema(),
-                    )
-                )
-                for tool in self.tools
-            ],
+            tools=tools,
         )
+        self._agent = self._agents.create_version(agent_name=agent_name, definition=definition)
         logger.info("Created Foundry agent %s", self._agent.id)
 
     @property
@@ -113,11 +124,12 @@ class FoundryAgent:
         """Azure AI Foundry agent id."""
         return self._agent.id
 
+    # --- chat() replaces the entire thread/run/poll loop ---
     async def chat(
         self,
         user_message: str,
         user_token: str,
-        thread_id: str | None,
+        conversation_id: str | None,
     ) -> AgentResponse:
         """Send a message, execute requested tools with the OBO token, return text."""
         if not user_message.strip():
@@ -126,42 +138,68 @@ class FoundryAgent:
             raise ValueError("user_token must not be blank")
 
         sanitised_message = self.guardrails.sanitise_input(user_message)
-        thread = await self._get_or_create_thread(thread_id)
-        await asyncio.to_thread(
-            self._agents.messages.create,
-            thread_id=thread.id,
-            role="user",
-            content=sanitised_message,
-        )
-        run = await asyncio.to_thread(
-            self._agents.runs.create,
-            thread_id=thread.id,
-            agent_id=self._agent.id,
-        )
+        
+        conversation_id = await self._get_or_create_conversation(conversation_id)
 
-        while _model_value(run, "status") in _ACTIVE_RUN_STATUSES:
-            if _model_value(run, "status") == "requires_action":
-                await self._submit_required_tool_outputs(thread.id, run, user_token)
-            await asyncio.sleep(self.poll_interval_seconds)
-            run = await asyncio.to_thread(
-                self._agents.runs.get,
-                thread_id=thread.id,
-                run_id=run.id,
+        # OBO exchange is deferred — only performed when tools are actually called.
+        # This avoids failures from app-only / client-credentials tokens when no
+        # tools are needed (the token is not a user assertion and cannot be
+        # exchanged via the OBO flow).
+        obo_token: str | None = None
+
+        from openai.types.responses.response_input_param import FunctionCallOutput, ResponseInputParam
+        input_payload: ResponseInputParam = sanitised_message
+        tool_calls_made = []
+
+        while True:
+            response = await asyncio.to_thread(
+                self._openai.responses.create,
+                input=input_payload,
+                conversation=conversation_id,
+                extra_body={"agent_reference": {
+                    "name": self._agent_name,
+                    "type": "agent_reference",
+                }},
             )
 
-        status = _model_value(run, "status")
-        if status not in _TERMINAL_RUN_STATUSES:
-            raise RuntimeError(f"Foundry run ended with unexpected status: {status}")
-        if status != "completed":
-            raise RuntimeError(f"Foundry run did not complete successfully: {status}")
+            # Collect any function calls the model wants to make
+            function_outputs: list[FunctionCallOutput] = []
+            for item in response.output:
+                if item.type == "function_call":
+                    tool = self._tool_map.get(item.name)
+                    if tool:
+                        # Exchange the user assertion for a downstream token only
+                        # when a tool actually needs it.
+                        if obo_token is None:
+                            obo_token = await self._obo_client.exchange(
+                                user_token,
+                                scopes=self.GRAPH_SCOPES,
+                            )
+                        kwargs = json.loads(item.arguments)
+                        result = await tool.execute(token=obo_token, **kwargs)
+                        # await self._audit_logger.log(...)   # T14 audit hook
+                        function_outputs.append(FunctionCallOutput(
+                            type="function_call_output",
+                            call_id=item.call_id,
+                            output=json.dumps(result),
+                        ))
+                        tool_calls_made.append(item.name)
 
-        response_text = await self._latest_assistant_text(thread.id)
-        filtered_text = await self.guardrails.filter_output(response_text)
+            if not function_outputs:
+                # No more tool calls — model has produced its final answer
+                break
+
+            # Feed results back and loop
+            input_payload = function_outputs
+
+        # Run the model's final answer through content safety filtering before
+        # returning it to the caller.
+        filtered_text = await self.guardrails.filter_output(response.output_text)
 
         return AgentResponse(
             text=filtered_text,
-            thread_id=thread.id,
-            run_id=run.id,
+            conversation_id=conversation_id,
+            tool_calls=tool_calls_made,
         )
 
     async def close(self) -> None:
@@ -174,50 +212,14 @@ class FoundryAgent:
 
     async def delete_agent(self) -> None:
         """Delete the Foundry agent created by this wrapper."""
-        await asyncio.to_thread(self._agents.delete_agent, self._agent.id)
+        await asyncio.to_thread(self._agents.delete_version, agent_name=self._agent.name, agent_version=self._agent.version)
 
-    async def _get_or_create_thread(self, thread_id: str | None) -> Any:
-        if thread_id:
-            return await asyncio.to_thread(self._agents.threads.get, thread_id)
-        return await asyncio.to_thread(self._agents.threads.create)
-
-    async def _submit_required_tool_outputs(
-        self,
-        thread_id: str,
-        run: Any,
-        user_token: str,
-    ) -> None:
-        from azure.ai.agents.models import RequiredFunctionToolCall, ToolOutput
-
-        required_action = _model_value(run, "required_action")
-        submit_outputs = _model_value(required_action, "submit_tool_outputs")
-        tool_calls = _model_value(submit_outputs, "tool_calls") or []
-        if not tool_calls:
-            await asyncio.to_thread(
-                self._agents.runs.cancel,
-                thread_id=thread_id,
-                run_id=run.id,
-            )
-            raise RuntimeError("Foundry requested tool outputs but supplied no calls")
-
-        tool_outputs = []
-        for tool_call in tool_calls:
-            if not isinstance(tool_call, RequiredFunctionToolCall):
-                continue
-            tool_outputs.append(
-                ToolOutput(
-                    tool_call_id=tool_call.id,
-                    output=await self._execute_tool_call(tool_call, user_token),
-                )
-            )
-
-        if tool_outputs:
-            await asyncio.to_thread(
-                self._agents.runs.submit_tool_outputs,
-                thread_id=thread_id,
-                run_id=run.id,
-                tool_outputs=tool_outputs,
-            )
+    # --- conversation replaces thread ---
+    async def _get_or_create_conversation(self, conversation_id: str | None) -> str:
+        if conversation_id:
+            return conversation_id  # conversations are just IDs, no fetch needed
+        conv = await asyncio.to_thread(self._openai.conversations.create)
+        return conv.id
 
     async def _execute_tool_call(self, tool_call: Any, user_token: str) -> str:
         details = _model_value(tool_call, "function") or _model_value(
@@ -241,26 +243,6 @@ class FoundryAgent:
 
         result = self.guardrails.strip_pii_from_tool_output(result)
         return json.dumps(result)
-
-    async def _latest_assistant_text(self, thread_id: str) -> str:
-        from azure.ai.agents.models import ListSortOrder
-
-        messages = await asyncio.to_thread(
-            lambda: list(
-                self._agents.messages.list(
-                    thread_id=thread_id,
-                    order=ListSortOrder.DESCENDING,
-                )
-            )
-        )
-        for message in messages:
-            if str(_model_value(message, "role")).lower() != "assistant":
-                continue
-            text = _message_text(message)
-            if text:
-                return text
-        return ""
-
 
 def discover_base_tools() -> list[BaseTool]:
     """Instantiate all no-argument ``BaseTool`` subclasses in ``tools``."""

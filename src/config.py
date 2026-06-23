@@ -21,6 +21,8 @@ KV_SECRET_AZURE_CONTENT_SAFETY_ENDPOINT = "AZURE-CONTENT-SAFETY-ENDPOINT"
 KV_SECRET_AZURE_CONTENT_SAFETY_KEY = "AZURE-CONTENT-SAFETY-KEY"
 KV_SECRET_REDIS_CONNECTION_STRING = "REDIS-CONNECTION-STRING"
 KV_SECRET_APPLICATIONINSIGHTS_CONNECTION_STRING = "APPLICATIONINSIGHTS-CONNECTION-STRING"
+KV_SECRET_ENTRA_REDIRECT_URIS = "ENTRA-REDIRECT-URIS"
+KV_SECRET_GRAPH_HEALTH_CHECK_TOKEN = "GRAPH-HEALTH-CHECK-TOKEN"
 
 # .env.local variable names (see CLAUDE.md)
 ENV_ENTRA_TENANT_ID = "ENTRA_TENANT_ID"
@@ -31,7 +33,9 @@ ENV_AZURE_CONTENT_SAFETY_ENDPOINT = "AZURE_CONTENT_SAFETY_ENDPOINT"
 ENV_AZURE_CONTENT_SAFETY_KEY = "AZURE_CONTENT_SAFETY_KEY"
 ENV_REDIS_CONNECTION_STRING = "REDIS_CONNECTION_STRING"
 ENV_APPLICATIONINSIGHTS_CONNECTION_STRING = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+ENV_ENTRA_REDIRECT_URIS = "ENTRA_REDIRECT_URIS"
 ENV_AZURE_KEY_VAULT_URL = "AZURE_KEY_VAULT_URL"
+ENV_GRAPH_HEALTH_CHECK_TOKEN = "GRAPH_HEALTH_CHECK_TOKEN"
 
 
 class ConfigurationError(Exception):
@@ -50,16 +54,18 @@ class Settings:
     azure_content_safety_key: str
     redis_connection_string: str
     applicationinsights_connection_string: str
+    entra_redirect_uris: list[str]
+    graph_health_check_token: str | None = None
     azure_key_vault_url: str | None = None
 
     _REQUIRED_ENV_KEYS: ClassVar[tuple[str, ...]] = (
         ENV_ENTRA_TENANT_ID,
         ENV_ENTRA_CLIENT_ID,
         ENV_AZURE_OPENAI_ENDPOINT,
-        ENV_AZURE_CONTENT_SAFETY_ENDPOINT,
-        ENV_AZURE_CONTENT_SAFETY_KEY,
-        ENV_REDIS_CONNECTION_STRING,
-        ENV_APPLICATIONINSIGHTS_CONNECTION_STRING,
+        # ENV_AZURE_CONTENT_SAFETY_ENDPOINT,
+        # ENV_AZURE_CONTENT_SAFETY_KEY,
+        # ENV_REDIS_CONNECTION_STRING,
+        # ENV_APPLICATIONINSIGHTS_CONNECTION_STRING,
     )
 
     @classmethod
@@ -127,6 +133,10 @@ class Settings:
             applicationinsights_connection_string=_get_required(
                 KV_SECRET_APPLICATIONINSIGHTS_CONNECTION_STRING
             ),
+            entra_redirect_uris=cls._parse_list(
+                _get_optional(KV_SECRET_ENTRA_REDIRECT_URIS)
+            ),
+            graph_health_check_token=_get_optional(KV_SECRET_GRAPH_HEALTH_CHECK_TOKEN),
         )
 
     @classmethod
@@ -159,7 +169,20 @@ class Settings:
             applicationinsights_connection_string=os.environ[
                 ENV_APPLICATIONINSIGHTS_CONNECTION_STRING
             ],
+            entra_redirect_uris=cls._parse_list(os.getenv(ENV_ENTRA_REDIRECT_URIS)),
+            graph_health_check_token=os.getenv(ENV_GRAPH_HEALTH_CHECK_TOKEN),
         )
+
+    @staticmethod
+    def _parse_list(value: str | None) -> list[str]:
+        """Split comma- or newline-separated strings into a list."""
+        if not value:
+            return []
+
+        parts: list[str] = []
+        for line in value.splitlines():
+            parts.extend(item.strip() for item in line.split(","))
+        return [item for item in parts if item]
 
     @classmethod
     def _has_required_env(cls) -> bool:

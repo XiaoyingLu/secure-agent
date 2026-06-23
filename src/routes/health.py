@@ -31,7 +31,9 @@ async def health_auth(
     _: None = Depends(require_role(AGENT_ADMIN_ROLE_NAME)),
 ) -> dict[str, object]:
     """Verify Microsoft Graph connectivity using a configured test token."""
-    token = os.getenv(ENV_GRAPH_HEALTH_CHECK_TOKEN)
+    settings = getattr(request.app.state, "settings", None)
+    token = settings.graph_health_check_token if settings else os.getenv(ENV_GRAPH_HEALTH_CHECK_TOKEN)
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -18,7 +18,6 @@ from routes.health import APP_VERSION
 
 logger = logging.getLogger(__name__)
 DEFAULT_ENTRA_REDIRECT_URI = "http://127.0.0.1:8000/callback"
-ENV_ENTRA_REDIRECT_URI = "ENTRA_REDIRECT_URI"
 
 
 @asynccontextmanager
@@ -36,7 +35,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("JWKS cache warmed for tenant %s", settings.entra_tenant_id)
 
     if settings.entra_client_secret:
-        redirect_uri = os.getenv(ENV_ENTRA_REDIRECT_URI, DEFAULT_ENTRA_REDIRECT_URI)
+        # Pick the first configured redirect URI, or fallback to a standard local default
+        redirect_uri = (
+            settings.entra_redirect_uris[0] if settings.entra_redirect_uris else DEFAULT_ENTRA_REDIRECT_URI
+        )
         app.state.msal_client = MSALClient(
             tenant_id=settings.entra_tenant_id,
             client_id=settings.entra_client_id,

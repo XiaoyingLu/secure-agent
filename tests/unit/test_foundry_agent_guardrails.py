@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -16,23 +17,19 @@ class _Model:
     status: str | None = None
 
 
-class _Messages:
-    def __init__(self) -> None:
-        self.created: dict[str, Any] | None = None
-
-    def create(self, **kwargs: Any) -> None:
-        self.created = kwargs
-
-
-class _Runs:
-    def create(self, **kwargs: Any) -> _Model:
-        return _Model(id="run-1", status="completed")
+@dataclass
+class MockResponseItem:
+    type: str
+    name: str = ""
+    arguments: str = "{}"
+    call_id: str = ""
 
 
-class _Agents:
-    def __init__(self) -> None:
-        self.messages = _Messages()
-        self.runs = _Runs()
+@dataclass
+class MockResponse:
+    output: list[MockResponseItem] = field(default_factory=list)
+    output_text: str = ""
+    id: str = "resp-1"
 
 
 class _Guardrails:
@@ -58,53 +55,76 @@ class _Tool(BaseTool):
         return {"value": "Email ava@example.com"}
 
 
-@pytest.mark.asyncio
-async def test_chat_sanitises_user_message_before_sending_to_foundry() -> None:
+def _make_conversation_mock(conversation_id: str = "conv-1") -> MagicMock:
+    """Return a ``create`` callable that returns an object with ``id``."""
+    mock = MagicMock()
+    mock.return_value = _Model(id=conversation_id)
+    return mock
+
+
+def _make_responses_mock(*responses: MockResponse) -> MagicMock:
+    """Return a ``create`` callable that returns responses in sequence."""
+    mock = MagicMock()
+    mock.side_effect = list(responses)
+    return mock
+
+
+def _make_agent(
+    *,
+    guardrails: _Guardrails | None = None,
+    tool_map: dict[str, BaseTool] | None = None,
+    conversation_id: str = "conv-1",
+    responses: list[MockResponse] | None = None,
+) -> FoundryAgent:
     agent = FoundryAgent.__new__(FoundryAgent)
-    agent.guardrails = _Guardrails()
-    agent._agents = _Agents()
+    agent.guardrails = guardrails or _Guardrails()
     agent._agent = _Model(id="agent-1")
+    agent._agent_name = "secure-agent-integration-test"
+    agent._tool_map = tool_map or {}
+    agent._obo_client = AsyncMock()
+    agent.GRAPH_SCOPES = ["https://graph.microsoft.com/.default"]
     agent.poll_interval_seconds = 0
 
-    async def get_thread(thread_id: str | None) -> _Model:
-        return _Model(id=thread_id or "thread-1")
+    # Mock the OpenAI client
+    openai_mock = MagicMock()
+    openai_mock.conversations.create = _make_conversation_mock(conversation_id)
+    openai_mock.responses.create = _make_responses_mock(
+        *(responses or [MockResponse(output=[], output_text="done")])
+    )
+    agent._openai = openai_mock
 
-    async def latest_text(thread_id: str) -> str:
-        return "done"
+    return agent
 
-    agent._get_or_create_thread = get_thread
-    agent._latest_assistant_text = latest_text
+
+@pytest.mark.asyncio
+async def test_chat_sanitises_user_message_before_sending_to_foundry() -> None:
+    """Guardrails.sanitise_input is called before the message reaches Foundry."""
+    guardrails = _Guardrails()
+    agent = _make_agent(guardrails=guardrails)
 
     await agent.chat("hello", "token", None)
 
-    assert agent._agents.messages.created == {
-        "thread_id": "thread-1",
-        "role": "user",
-        "content": "sanitised: hello",
-    }
-    assert agent.guardrails.filtered_text == "done"
+    # The input sent to Foundry should be sanitised
+    call_kwargs = agent._openai.responses.create.call_args
+    assert call_kwargs is not None
+    input_payload = call_kwargs[1].get("input")
+    assert input_payload == "sanitised: hello"
 
 
 @pytest.mark.asyncio
 async def test_chat_returns_content_safety_filtered_response() -> None:
-    agent = FoundryAgent.__new__(FoundryAgent)
-    agent.guardrails = _Guardrails()
-    agent._agents = _Agents()
-    agent._agent = _Model(id="agent-1")
-    agent.poll_interval_seconds = 0
-
-    async def get_thread(thread_id: str | None) -> _Model:
-        return _Model(id=thread_id or "thread-1")
-
-    async def latest_text(thread_id: str) -> str:
-        return "final answer"
-
-    agent._get_or_create_thread = get_thread
-    agent._latest_assistant_text = latest_text
+    """Guardrails.filter_output is applied to the model's text response."""
+    guardrails = _Guardrails()
+    agent = _make_agent(
+        guardrails=guardrails,
+        responses=[MockResponse(output=[], output_text="final answer")],
+    )
 
     response = await agent.chat("hello", "token", None)
 
+    # The returned text should go through guardrails.filter_output
     assert response.text == "filtered: final answer"
+    assert guardrails.filtered_text == "final answer"
 
 
 @pytest.mark.asyncio

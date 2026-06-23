@@ -106,3 +106,42 @@ class MCPToolServer:
                 text=json.dumps(result),
             )
         ]
+
+if __name__ == "__main__":
+    import asyncio
+    from mcp.server.stdio import stdio_server
+    
+    # 1. Instantiate the actual tools your server should provide
+    # (Replace these mock examples with your actual BaseTool subclasses)
+    from tools.base_tool import BaseTool  # Ensure your tool subclasses are imported
+    
+    from tools.calendar_tool import CalendarTool
+    from tools.email_tool import EmailTool
+    from tools.secure_lookup_tool import SecureLookupTool
+    from tools.sharepoint_tool import SharePointTool
+
+    registered_tools: list[BaseTool] = [
+        EmailTool(),
+        CalendarTool(),
+        SharePointTool(),
+        SecureLookupTool(),
+    ]
+
+    # 2. Initialize your custom wrapper class
+    server_wrapper = MCPToolServer(
+        server_name="secure-agent-tools", 
+        tools=registered_tools
+    )
+
+    async def main():
+        # 3. Pull out the low-level Server instance and attach it to stdio streams
+        async with stdio_server() as (read_stream, write_stream):
+            # This keeps the background process alive and waiting for client requests
+            await server_wrapper.mcp_server.run(
+                read_stream,
+                write_stream,
+                server_wrapper.mcp_server.create_initialization_options()
+            )
+
+    # Run the async loop
+    asyncio.run(main())

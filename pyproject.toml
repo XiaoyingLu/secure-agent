@@ -34,8 +34,8 @@ dependencies = [
 secure-agent = "main:run_server"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
-py-modules = ["main", "config", "mcp_server"]
+package-dir = {"" = "src"} # This makes 'src' the root for package discovery
+py-modules = ["main", "config"] # 'mcp_server' is now part of the 'tools' package
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -21,8 +21,9 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-TENANT_ID = os.getenv("AZURE_TENANT_ID")
-CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
+# These are used for legacy/standalone validation. 
+TENANT_ID = os.getenv("ENTRA_TENANT_ID")
+CLIENT_ID = os.getenv("ENTRA_CLIENT_ID")
 
 # Legacy v1.0 issuer used by some tokens in this project
 AZURE_ISSUER = f"https://sts.windows.net/{TENANT_ID}/"
@@ -31,7 +32,7 @@ ALLOWED_AUDIENCES = [CLIENT_ID, f"api://{CLIENT_ID}"]
 
 JWKS_TTL_SECONDS = 3600
 INVALID_TOKEN_BODY = {"error": "invalid_token"}
-DEFAULT_EXCLUDE_PATHS = frozenset({"/health", "/docs", "/openapi.json", "/redoc"})
+DEFAULT_EXCLUDE_PATHS = frozenset({"/", "/favicon.ico", "/health", "/docs", "/openapi.json", "/redoc"})
 
 
 def _jwks_url_for_tenant(tenant_id: str) -> str:
@@ -53,7 +54,7 @@ class EntraJWTValidator:
         self,
         tenant_id: str,
         client_id: str,
-        *,
+        *, # <--- Everything below this must be named
         issuer: str | None = None,
         audiences: list[str] | None = None,
         jwks_url: str | None = None,

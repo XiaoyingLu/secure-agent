@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sys
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
@@ -15,12 +16,11 @@ async def run_orchestrator(prompt: str, mock_token: str):
     # We run the server as a module (-m) so that absolute imports like 'src.auth' work correctly.
     # We also ensure the current environment variables are passed down.
     env = os.environ.copy()
-    env["PYTHONPATH"] = os.getcwd()  # Ensure the server can find the 'src' package
-    
     server_params = StdioServerParameters(
-        command="python",
-        args=["-m", "src.mcp_server"],
+        command=sys.executable,
+        args=["-m", "tools.mcp_server"],
         env=env,
+        stderr=sys.stderr  # Pulls the background crash into view
     )
 
     # 2. Establish a connection to the MCP server via stdio
@@ -30,11 +30,11 @@ async def run_orchestrator(prompt: str, mock_token: str):
 
             # 3. Create a LangChain tool wrapper for the MCP 'secure_data_lookup' tool
             @tool
-            async def secure_data_lookup(auth_token: str) -> str:
+            async def secure_data_lookup(obo_token: str) -> str:
                 """
                 Retrieves internal account status or secure data. Requires a valid auth_token.
                 """
-                result = await session.call_tool("secure_data_lookup", arguments={"auth_token": auth_token})
+                result = await session.call_tool("secure_data_lookup", arguments={"obo_token": obo_token})
                 return result.content[0].text
 
             # 4. Initialize the Local LLM client (using Ollama)

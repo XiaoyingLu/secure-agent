@@ -127,14 +127,20 @@ class TestEntraJWTValidator:
         assert mock_http.get.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_jwks_refetched_after_ttl(self, validator, rsa_keypair, mock_http, mocker):
+    async def test_jwks_refetched_after_ttl(self, validator, rsa_keypair, mock_http):
         validator.jwks_ttl_seconds = 1
-        validator._jwks_fetched_at = time.time() - 2
         private_key, _ = rsa_keypair
 
+        # Initial fetch
         await validator.validate_token(_encode_token(private_key, _valid_claims()))
-
         assert mock_http.get.await_count == 1
+
+        # Expire cache manually
+        validator._jwks_fetched_at = time.time() - 2
+
+        # Second fetch should trigger another HTTP GET
+        await validator.validate_token(_encode_token(private_key, _valid_claims()))
+        assert mock_http.get.await_count == 2
 
     @pytest.mark.asyncio
     async def test_expired_token_raises(self, validator, rsa_keypair):

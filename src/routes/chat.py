@@ -24,9 +24,9 @@ class ChatRequest(BaseModel):
     """Incoming chat message from the client."""
 
     message: str = Field(..., min_length=1, description="User prompt for the agent")
-    thread_id: str | None = Field(
+    conversation_id: str | None = Field(
         default=None,
-        description="Existing Foundry thread id, or null to start a new thread.",
+        description="Existing Foundry conversation id, or null to start a new conversation.",
     )
 
 
@@ -34,7 +34,7 @@ class ChatResponse(BaseModel):
     """Chat response returned to the client."""
 
     response: str
-    thread_id: str
+    conversation_id: str
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
 
 
@@ -89,7 +89,7 @@ async def post_chat(
         "chat.request",
         extra={
             "custom_dimensions": {
-                "thread_id": body.thread_id,
+                "conversation_id": body.conversation_id,
                 "message_length": len(body.message),
                 "user_id": user_id,
             }
@@ -100,7 +100,7 @@ async def post_chat(
         result = await agent.chat(
             body.message,
             _extract_user_token(request),
-            body.thread_id,
+            body.conversation_id,
         )
     except PromptInjectionError as exc:
         raise HTTPException(
@@ -114,11 +114,12 @@ async def post_chat(
         ) from exc
 
     tool_calls = getattr(result, "tool_calls", []) or []
+    conversation_id = result.conversation_id if hasattr(result, "conversation_id") else ""
     logger.info(
         "chat.response",
         extra={
             "custom_dimensions": {
-                "thread_id": result.thread_id,
+                "conversation_id": conversation_id,
                 "response_length": len(result.text),
                 "tool_call_count": len(tool_calls),
                 "user_id": user_id,
@@ -127,6 +128,6 @@ async def post_chat(
     )
     return ChatResponse(
         response=result.text,
-        thread_id=result.thread_id,
+        conversation_id=conversation_id,
         tool_calls=tool_calls,
     )

@@ -221,7 +221,7 @@ class MSALClient:
             account=self._account,
             force_refresh=force_refresh,
         )
-        if not refreshed:
+        if not refreshed or "error" in refreshed:
             raise RuntimeError("Silent token refresh failed; re-authentication required.")
 
         self._apply_token_result(refreshed)

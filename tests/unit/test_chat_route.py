@@ -43,20 +43,19 @@ def test_chat_calls_foundry_agent_and_returns_response() -> None:
     agent = MockFoundryAgent()
     agent.chat.return_value = AgentResponse(
         text="Here is your answer.",
-        thread_id="thread-123",
-        run_id="run-123",
+        conversation_id="thread-123",
         tool_calls=[{"name": "get_my_emails"}],
     )
 
     response = _client(agent).post(
         "/chat",
-        json={"message": "What mail did I get?", "thread_id": "thread-abc"},
+        json={"message": "What mail did I get?", "conversation_id": "thread-abc"},
     )
 
     assert response.status_code == 200
     assert response.json() == {
         "response": "Here is your answer.",
-        "thread_id": "thread-123",
+        "conversation_id": "thread-123",
         "tool_calls": [{"name": "get_my_emails"}],
     }
     agent.chat.assert_awaited_once_with(
@@ -66,21 +65,20 @@ def test_chat_calls_foundry_agent_and_returns_response() -> None:
     )
 
 
-def test_chat_accepts_null_thread_id() -> None:
+def test_chat_accepts_null_conversation_id() -> None:
     agent = MockFoundryAgent()
     agent.chat.return_value = AgentResponse(
-        text="Started a new thread.",
-        thread_id="new-thread",
-        run_id="run-123",
+        text="Started a new conversation.",
+        conversation_id="new-conversation",
     )
 
     response = _client(agent).post(
         "/chat",
-        json={"message": "Hello", "thread_id": None},
+        json={"message": "Hello", "conversation_id": None},
     )
 
     assert response.status_code == 200
-    assert response.json()["thread_id"] == "new-thread"
+    assert response.json()["conversation_id"] == "new-conversation"
     assert response.json()["tool_calls"] == []
     agent.chat.assert_awaited_once_with("Hello", "delegated-user-token", None)
 
