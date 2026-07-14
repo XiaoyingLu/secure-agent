@@ -107,8 +107,30 @@ class OBOClient:
             scopes,
         )
 
+        # Log result keys (scrubbed — don't log token values).
+        result_keys = set(result.keys()) if result else set()
+        has_error = "error" in result
+        has_access_token = "access_token" in result
+        granted_scopes = result.get("scope", "")  # Space-separated scopes granted
+        logger.debug(
+            "MSAL OBO exchange complete: keys=%s has_error=%s has_access_token=%s granted_scopes=%s",
+            sorted(result_keys),
+            has_error,
+            has_access_token,
+            granted_scopes,
+        )
+        print(f"[OBO] Exchange result: keys={sorted(result_keys)} has_error={has_error} has_access_token={has_access_token}")  # DEBUG
+        print(f"[OBO] Requested scopes: {scopes}")  # DEBUG
+        print(f"[OBO] Granted scopes: {granted_scopes}")  # DEBUG
+
         if "error" in result:
             description = result.get("error_description") or result["error"]
+            error_code = result.get("error")
+            logger.error(
+                "MSAL OBO exchange returned error: error=%s description=%s",
+                error_code,
+                description,
+            )
             raise OBOError(description)
 
         if "access_token" not in result:
@@ -117,6 +139,12 @@ class OBOClient:
         acquired_at = time.time()
         expires_at = _expires_at_from_result(result, acquired_at=acquired_at)
         access_token = result["access_token"]
+        
+        # Validate that the token is not empty (MSAL sometimes returns "" or None).
+        if not access_token or not isinstance(access_token, str) or not access_token.strip():
+            error_msg = f"OBO response returned empty/invalid access_token: {access_token!r}"
+            logger.error(error_msg)
+            raise OBOError(error_msg)
         self._cache[cache_key] = _CachedOBOToken(
             access_token=access_token,
             expires_at=expires_at,

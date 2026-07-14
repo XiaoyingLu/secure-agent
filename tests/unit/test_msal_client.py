@@ -57,14 +57,30 @@ class TestGeneratePkce:
 
 
 class TestMSALClientAuthorization:
+    def test_requires_client_secret(self):
+        with pytest.raises(ValueError, match="ENTRA_CLIENT_SECRET"):
+            MSALClient(
+                tenant_id="test-tenant",
+                client_id="test-client-id",
+                client_secret="",
+                redirect_uri="https://app.example/callback",
+                scopes=["User.Read"],
+            )
+
     def test_generate_pkce_stores_pair_on_client(self, client):
         pair = client.generate_pkce()
         assert client.pkce is pair
         assert pair.code_challenge_method == "S256"
 
-    def test_build_authorization_url_requires_pkce(self, client, mock_cca):
-        with pytest.raises(ValueError, match="generate_pkce"):
-            client.build_authorization_url()
+    def test_build_authorization_url_without_pkce_for_confidential_client(
+        self, client, mock_cca
+    ):
+        url = client.build_authorization_url(state="csrf-state")
+
+        assert url.startswith("https://login.microsoftonline.com")
+        call_kwargs = mock_cca.client.build_auth_request_uri.call_args.kwargs
+        assert "code_challenge" not in call_kwargs
+        assert "code_challenge_method" not in call_kwargs
 
     def test_build_authorization_url_includes_pkce_and_state(self, client, mock_cca):
         pkce = client.generate_pkce()
@@ -95,6 +111,28 @@ class TestMSALClientAuthorization:
 
 
 class TestMSALClientTokenExchange:
+    def test_state_bound_pkce_uses_matching_verifier(self, client, mock_cca):
+        mock_cca.acquire_token_by_authorization_code.return_value = {
+            "access_token": "access-123",
+            "expires_in": 3600,
+            "token_type": "Bearer",
+        }
+        mock_cca.get_accounts.return_value = [{"username": "user@contoso.com"}]
+
+        client.generate_pkce()
+        client.build_authorization_url(state="state-1")
+        client.generate_pkce()
+        client.build_authorization_url(state="state-2")
+
+        client.exchange_authorization_code("code-1", state="state-1")
+        client.exchange_authorization_code("code-2", state="state-2")
+
+        first_call = mock_cca.acquire_token_by_authorization_code.call_args_list[0].kwargs
+        second_call = mock_cca.acquire_token_by_authorization_code.call_args_list[1].kwargs
+        assert first_call["code_verifier"]
+        assert second_call["code_verifier"]
+        assert first_call["code_verifier"] != second_call["code_verifier"]
+
     def test_exchange_authorization_code_success(self, client, mock_cca):
         client.generate_pkce()
         token_response = {
@@ -128,9 +166,23 @@ class TestMSALClientTokenExchange:
         with pytest.raises(MSALAuthenticationError, match="Code expired"):
             client.exchange_authorization_code("bad-code")
 
-    def test_exchange_requires_pkce(self, client):
-        with pytest.raises(ValueError, match="generate_pkce"):
-            client.exchange_authorization_code("code")
+    def test_exchange_without_pkce_for_confidential_client(self, client, mock_cca):
+        token_response = {
+            "access_token": "access-123",
+            "expires_in": 3600,
+            "token_type": "Bearer",
+        }
+        mock_cca.acquire_token_by_authorization_code.return_value = token_response
+        mock_cca.get_accounts.return_value = [{"username": "user@contoso.com"}]
+
+        result = client.exchange_authorization_code("code")
+
+        assert result == token_response
+        mock_cca.acquire_token_by_authorization_code.assert_called_once_with(
+            "code",
+            scopes=["User.Read"],
+            redirect_uri="https://app.example/callback",
+        )
 
 
 class TestMSALClientSilentRefresh:

@@ -14,27 +14,25 @@ def email_tool():
 
 @pytest.fixture
 def mock_graph_response():
-    """Sample Graph API response for messages."""
-    return {
-        "value": [
-            {
-                "id": "msg-1",
-                "subject": "Test Email 1",
-                "from": {"emailAddress": {"name": "John Doe", "address": "john@example.com"}},
-                "receivedDateTime": "2026-05-22T10:30:00Z",
-                "bodyPreview": "This is a test email with <b>bold</b> text.",
-                "isRead": False,
-            },
-            {
-                "id": "msg-2",
-                "subject": "Test Email 2",
-                "from": {"emailAddress": {"name": "Jane Smith", "address": "jane@example.com"}},
-                "receivedDateTime": "2026-05-22T09:15:00Z",
-                "bodyPreview": "<p>Another test email with <a href='#'>link</a></p>",
-                "isRead": True,
-            },
-        ]
-    }
+    """Sample Graph API response for messages (already extracted by GraphClient)."""
+    return [
+        {
+            "id": "msg-1",
+            "subject": "Test Email 1",
+            "from": {"emailAddress": {"name": "John Doe", "address": "john@example.com"}},
+            "receivedDateTime": "2026-05-22T10:30:00Z",
+            "bodyPreview": "This is a test email with <b>bold</b> text.",
+            "isRead": False,
+        },
+        {
+            "id": "msg-2",
+            "subject": "Test Email 2",
+            "from": {"emailAddress": {"name": "Jane Smith", "address": "jane@example.com"}},
+            "receivedDateTime": "2026-05-22T09:15:00Z",
+            "bodyPreview": "<p>Another test email with <a href='#'>link</a></p>",
+            "isRead": True,
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -125,7 +123,7 @@ async def test_email_tool_execute_with_filter_unread(email_tool, mocker):
     mock_graph_client = mocker.patch("tools.email_tool.GraphClient")
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
-    mock_client_instance.get_messages.return_value = {"value": []}
+    mock_client_instance.get_messages.return_value = []
 
     await email_tool.execute(token="token", top=5, filter_unread=True)
 
@@ -142,7 +140,7 @@ async def test_email_tool_execute_empty_response(email_tool, mocker):
     mock_graph_client = mocker.patch("tools.email_tool.GraphClient")
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
-    mock_client_instance.get_messages.return_value = {"value": []}
+    mock_client_instance.get_messages.return_value = []
 
     result = await email_tool.execute(token="token")
 
@@ -250,17 +248,15 @@ async def test_email_tool_body_preview_stripped_in_result(email_tool, mocker):
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
 
-    response_with_html = {
-        "value": [
-            {
-                "id": "msg-1",
-                "subject": "HTML Email",
-                "from": {"emailAddress": {"name": "Test", "address": "test@example.com"}},
-                "receivedDateTime": "2026-05-22T10:00:00Z",
-                "bodyPreview": "<div><p>Paragraph with <strong>bold</strong> and <em>italic</em></p></div>",
-            }
-        ]
-    }
+    response_with_html = [
+        {
+            "id": "msg-1",
+            "subject": "HTML Email",
+            "from": {"emailAddress": {"name": "Test", "address": "test@example.com"}},
+            "receivedDateTime": "2026-05-22T10:00:00Z",
+            "bodyPreview": "<div><p>Paragraph with <strong>bold</strong> and <em>italic</em></p></div>",
+        }
+    ]
     mock_client_instance.get_messages.return_value = response_with_html
 
     result = await email_tool.execute(token="token")

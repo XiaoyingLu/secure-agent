@@ -11,3 +11,5 @@ wheels/
 .env
 .env.local
 
+# Web dependencies
+web/node_modules/

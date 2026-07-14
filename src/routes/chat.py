@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -11,10 +12,16 @@ from pydantic import BaseModel, Field
 from agent.foundry_agent import FoundryAgent
 from agent.guardrails import (
     ContentPolicyViolationError,
-    Guardrails,
     PromptInjectionError,
 )
+from auth.obo_client import OBOError
 from auth.rbac import AGENT_USER_ROLE_NAME, require_role
+from graph.graph_client import (
+    GraphAuthError,
+    GraphClientError,
+    GraphPermissionError,
+    GraphRateLimitError,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
@@ -39,20 +46,13 @@ class ChatResponse(BaseModel):
 
 
 def get_foundry_agent(request: Request) -> FoundryAgent:
-    """Resolve the Foundry agent instance for request handling."""
+    """Resolve the Foundry agent instance from application state."""
     agent = getattr(request.app.state, "foundry_agent", None)
     if agent is None:
-        settings = getattr(request.app.state, "settings", None)
-        guardrails = (
-            Guardrails(
-                content_safety_endpoint=settings.azure_content_safety_endpoint,
-                content_safety_key=settings.azure_content_safety_key,
-            )
-            if settings is not None
-            else None
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Agent not available. Check server configuration.",
         )
-        agent = FoundryAgent(guardrails=guardrails)
-        request.app.state.foundry_agent = agent
     return agent
 
 
@@ -66,6 +66,7 @@ def _extract_user_token(request: Request) -> str:
 
     for key in ("access_token", "token", "bearer_token", "obo_token"):
         token = user.get(key)
+        logger.debug("Checking for delegated token in user state key '%s'", key)
         if isinstance(token, str) and token:
             return token
 
@@ -96,12 +97,21 @@ async def post_chat(
         },
     )
 
+    user_token = _extract_user_token(request)
     try:
-        result = await agent.chat(
-            body.message,
-            _extract_user_token(request),
-            body.conversation_id,
-        )
+        try:
+            async with asyncio.timeout(120):
+                result = await agent.chat(
+                    body.message,
+                    user_token,
+                    body.conversation_id,
+                )
+        except TimeoutError:
+            logger.error("Chat operation timed out after 120 seconds")
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Request timed out. The agent took too long to respond. Please try again.",
+            ) from None
     except PromptInjectionError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -111,6 +121,65 @@ async def post_chat(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Content policy violation: {exc}",
+        ) from exc
+    except OBOError as exc:
+        logger.warning("chat.obo_exchange_failed", extra={"custom_dimensions": {"user_id": user_id}})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                "Delegated token exchange failed for downstream Microsoft Graph access. "
+                "Sign out and sign in again, then retry."
+            ),
+        ) from exc
+    except GraphAuthError as exc:
+        logger.warning(
+            "chat.graph_auth_failed",
+            extra={"custom_dimensions": {"user_id": user_id}},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                "Microsoft Graph rejected the delegated token. "
+                "This usually means you haven't granted permission for the required Graph scopes. "
+                "Please complete the permission consent flow at /auth/graph-consent, then retry."
+            ),
+        ) from exc
+    except GraphPermissionError as exc:
+        logger.warning(
+            "chat.graph_permission_denied",
+            extra={"custom_dimensions": {"user_id": user_id}},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Missing Microsoft Graph delegated permissions for this operation. "
+                "Confirm Mail.Read, Calendars.Read, and Sites.Read.All are consented."
+            ),
+        ) from exc
+    except GraphRateLimitError as exc:
+        logger.warning(
+            "chat.graph_rate_limited",
+            extra={"custom_dimensions": {"user_id": user_id}},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Microsoft Graph rate limit reached. Please retry shortly.",
+            headers={"Retry-After": str(exc.retry_after)} if exc.retry_after is not None else None,
+        ) from exc
+    except GraphClientError as exc:
+        logger.warning(
+            "chat.graph_error",
+            extra={"custom_dimensions": {"user_id": user_id}},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Downstream Microsoft Graph request failed.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("chat.unhandled_error", extra={"custom_dimensions": {"user_id": user_id}})
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Agent execution failed while processing the request.",
         ) from exc
 
     tool_calls = getattr(result, "tool_calls", []) or []

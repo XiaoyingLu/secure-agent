@@ -200,8 +200,13 @@ async def test_get_events_success(graph_client, mock_http, mocker):
     call_kwargs = mock_http.get.call_args.kwargs
     params = call_kwargs["params"]
     assert params["$top"] == 3
-    assert "start/dateTime ge '2026-05-21T00:00:00'" in params["$filter"]
-    assert "end/dateTime le '2026-05-28T23:59:59'" in params["$filter"]
+    # calendarView uses startDateTime/endDateTime query params, not $filter
+    assert params["startDateTime"] == "2026-05-21T00:00:00"
+    assert params["endDateTime"] == "2026-05-28T23:59:59"
+    assert "$filter" not in params
+    # Verify the correct endpoint is used
+    url = call_kwargs.get("url") or mock_http.get.call_args.args[0]
+    assert "calendarView" in url
 
 
 @pytest.mark.asyncio

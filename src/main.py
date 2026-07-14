@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -9,6 +10,8 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 
+from agent.foundry_agent import FoundryAgent
+from agent.guardrails import Guardrails
 from auth.msal_client import MSALClient
 from auth.token_validator import EntraJWTMiddleware, EntraJWTValidator
 from config import Settings
@@ -17,7 +20,7 @@ from routes import ROUTERS
 from routes.health import APP_VERSION
 
 logger = logging.getLogger(__name__)
-DEFAULT_ENTRA_REDIRECT_URI = "http://127.0.0.1:8000/callback"
+DEFAULT_ENTRA_REDIRECT_URI = "http://127.0.0.1:8000/auth/callback"
 
 
 @asynccontextmanager
@@ -26,9 +29,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = Settings.load()
     app.state.settings = settings
 
+    v2_issuer = f"https://login.microsoftonline.com/{settings.entra_tenant_id}/v2.0"
+    v1_issuer = f"https://sts.windows.net/{settings.entra_tenant_id}/"
     jwt_validator = EntraJWTValidator(
         settings.entra_tenant_id,
         settings.entra_client_id,
+        issuer=[v2_issuer, v1_issuer],
     )
     await jwt_validator.get_jwks()
     app.state.jwt_validator = jwt_validator
@@ -50,11 +56,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         app.state.msal_client = None
         logger.warning(
-            "ENTRA_CLIENT_SECRET not configured; MSAL client auth flow disabled"
+            "ENTRA_CLIENT_SECRET not configured; MSAL confidential-client auth flow disabled"
         )
 
     graph_client = GraphClient()
     app.state.graph_client = graph_client
+
+    guardrails = Guardrails(
+        content_safety_endpoint=settings.azure_content_safety_endpoint,
+        content_safety_key=settings.azure_content_safety_key,
+    )
+    try:
+        agent = await asyncio.to_thread(FoundryAgent, guardrails=guardrails)
+        app.state.foundry_agent = agent
+        logger.info("FoundryAgent initialised")
+    except ValueError as exc:
+        app.state.foundry_agent = None
+        logger.warning("FoundryAgent not initialised: %s", exc)
 
     yield
 

@@ -42,6 +42,9 @@ class EmailTool(BaseTool):
         """
         input_data = EmailToolInput(**kwargs)
 
+        if not token or not token.strip():
+            raise ValueError("OBO token is empty. Cannot call Graph API.")
+
         async with GraphClient() as client:
             response = await client.get_messages(
                 token=token,
@@ -49,8 +52,9 @@ class EmailTool(BaseTool):
                 filter_unread=input_data.filter_unread,
             )
 
+        # get_messages() returns a list directly (already extracted from response.value)
         emails = []
-        for msg in response.get("value", []):
+        for msg in response:
             body_preview = msg.get("bodyPreview", "")
             emails.append(
                 {

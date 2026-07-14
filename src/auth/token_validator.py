@@ -32,7 +32,23 @@ ALLOWED_AUDIENCES = [CLIENT_ID, f"api://{CLIENT_ID}"]
 
 JWKS_TTL_SECONDS = 3600
 INVALID_TOKEN_BODY = {"error": "invalid_token"}
-DEFAULT_EXCLUDE_PATHS = frozenset({"/", "/favicon.ico", "/health", "/docs", "/openapi.json", "/redoc"})
+ACCESS_TOKEN_COOKIE_NAME = "secure_agent_access_token"
+DEFAULT_EXCLUDE_PATHS = frozenset({
+    "/",
+    "/favicon.ico",
+    "/health",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    "/login",
+    "/login/status",
+    "/callback",
+    "/auth/login",
+    "/auth/login/status",
+    "/auth/callback",
+    "/auth/graph-consent",
+    "/auth/scopes-diagnostic",
+})
 
 
 def _jwks_url_for_tenant(tenant_id: str) -> str:
@@ -55,7 +71,7 @@ class EntraJWTValidator:
         tenant_id: str,
         client_id: str,
         *, # <--- Everything below this must be named
-        issuer: str | None = None,
+        issuer: str | list[str] | None = None,
         audiences: list[str] | None = None,
         jwks_url: str | None = None,
         jwks_ttl_seconds: int = JWKS_TTL_SECONDS,
@@ -192,6 +208,7 @@ class EntraJWTMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.exclude_paths:
             return await call_next(request)
 
+        print(f"Validating JWT for path: {request.url.path}")  # Debugging line
         validator = self._resolve_validator(request)
         if validator is None:
             return JSONResponse(
@@ -201,12 +218,25 @@ class EntraJWTMiddleware(BaseHTTPMiddleware):
 
         token = _extract_bearer_token(request.headers.get("Authorization"))
         if token is None:
+            cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
+            if isinstance(cookie_token, str) and cookie_token:
+                token = cookie_token
+        if token is None:
+            logger.warning(
+                "JWT validation failed for path %s: missing bearer token and auth cookie",
+                request.url.path,
+            )
             return JSONResponse(status_code=401, content=INVALID_TOKEN_BODY)
 
         try:
             claims = await validator.validate_token(token)
-        except Exception:
-            logger.debug("JWT validation failed for path %s", request.url.path)
+        except Exception as exc:
+            logger.error(
+                "JWT validation failed for path %s: %s: %s",
+                request.url.path,
+                type(exc).__name__,
+                str(exc),
+            )
             return JSONResponse(status_code=401, content=INVALID_TOKEN_BODY)
 
         request.state.user = {**claims, "access_token": token}
@@ -215,6 +245,7 @@ class EntraJWTMiddleware(BaseHTTPMiddleware):
 
 def _extract_bearer_token(authorization: str | None) -> str | None:
     if not authorization:
+        logger.debug("Authorization header missing")
         return None
     scheme, _, credentials = authorization.partition(" ")
     if scheme.lower() != "bearer" or not credentials:

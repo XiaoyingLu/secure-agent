@@ -123,6 +123,9 @@ class SharePointTool(BaseTool):
         """
         input_data = SharePointToolInput(**kwargs)
 
+        if not token or not token.strip():
+            raise ValueError("OBO token is empty. Cannot call Graph API.")
+
         logger.info(
             "SharePointTool.execute: query=%r top=%d",
             input_data.query,

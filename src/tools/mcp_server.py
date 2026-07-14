@@ -24,8 +24,9 @@ class MCPToolServer:
     """MCP server that lists tools and dispatches ``tools/call`` to :class:`BaseTool`."""
 
     def __init__(self, server_name: str, tools: Iterable[BaseTool]) -> None:
-        tool_map = {tool.name: tool for tool in tools}
-        if len(tool_map) != len(list(tools)):
+        tools_list = list(tools)  # Safely evaluate once
+        tool_map = {tool.name: tool for tool in tools_list}
+        if len(tool_map) != len(tools_list):
             raise ValueError("Tool names must be unique")
 
         self.server_name = server_name
@@ -117,14 +118,12 @@ if __name__ == "__main__":
     
     from tools.calendar_tool import CalendarTool
     from tools.email_tool import EmailTool
-    from tools.secure_lookup_tool import SecureLookupTool
     from tools.sharepoint_tool import SharePointTool
 
     registered_tools: list[BaseTool] = [
         EmailTool(),
         CalendarTool(),
         SharePointTool(),
-        SecureLookupTool(),
     ]
 
     # 2. Initialize your custom wrapper class

@@ -219,6 +219,17 @@ class TestEntraJWTMiddleware:
         assert response.status_code == 200
         assert response.json() == {"sub": "user-123"}
 
+    def test_cookie_token_sets_request_state_user(self, protected_app, rsa_keypair):
+        private_key, _ = rsa_keypair
+        token = _encode_token(private_key, _valid_claims())
+
+        with TestClient(protected_app) as client:
+            client.cookies.set("secure_agent_access_token", token)
+            response = client.get("/protected")
+
+        assert response.status_code == 200
+        assert response.json() == {"sub": "user-123"}
+
     def test_missing_authorization_returns_401(self, protected_app):
         with TestClient(protected_app) as client:
             response = client.get("/protected")

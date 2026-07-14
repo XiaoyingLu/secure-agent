@@ -38,6 +38,7 @@ def require_role(role: str) -> Callable[[Request], Coroutine[Any, Any, None]]:
     """
 
     async def _require_role(request: Request) -> None:
+        print(f"Checking for required role: {role}")  # Debugging line
         user = getattr(request.state, "user", None)
         if not isinstance(user, dict):
             raise HTTPException(

@@ -9,7 +9,9 @@ from fastapi.testclient import TestClient
 
 from agent.foundry_agent import AgentResponse
 from agent.guardrails import ContentPolicyViolationError, PromptInjectionError
+from auth.obo_client import OBOError
 from auth.rbac import AGENT_USER_ROLE_NAME
+from graph.graph_client import GraphAuthError, GraphPermissionError, GraphRateLimitError
 from routes.chat import get_foundry_agent, router
 
 
@@ -141,3 +143,55 @@ def test_chat_returns_bad_request_for_content_policy_violation() -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Content policy violation: Violence"
+
+
+def test_chat_returns_unauthorized_for_obo_exchange_failure() -> None:
+    agent = MockFoundryAgent()
+    agent.chat.side_effect = OBOError("invalid_grant")
+
+    response = _client(agent).post(
+        "/chat",
+        json={"message": "Show my latest emails"},
+    )
+
+    assert response.status_code == 401
+    assert "Delegated token exchange failed" in response.json()["detail"]
+
+
+def test_chat_returns_unauthorized_for_graph_auth_error() -> None:
+    agent = MockFoundryAgent()
+    agent.chat.side_effect = GraphAuthError("expired", 401)
+
+    response = _client(agent).post(
+        "/chat",
+        json={"message": "Show my profile"},
+    )
+
+    assert response.status_code == 401
+    assert "Graph rejected the delegated token" in response.json()["detail"]
+
+
+def test_chat_returns_forbidden_for_graph_permission_error() -> None:
+    agent = MockFoundryAgent()
+    agent.chat.side_effect = GraphPermissionError("denied", 403)
+
+    response = _client(agent).post(
+        "/chat",
+        json={"message": "Search sharepoint"},
+    )
+
+    assert response.status_code == 403
+    assert "Missing Microsoft Graph delegated permissions" in response.json()["detail"]
+
+
+def test_chat_returns_retry_after_for_graph_rate_limit() -> None:
+    agent = MockFoundryAgent()
+    agent.chat.side_effect = GraphRateLimitError("throttled", 429, retry_after=30)
+
+    response = _client(agent).post(
+        "/chat",
+        json={"message": "Get my latest emails"},
+    )
+
+    assert response.status_code == 429
+    assert response.headers.get("Retry-After") == "30"

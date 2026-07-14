@@ -14,6 +14,7 @@ from tools.base_tool import BaseTool
 @dataclass
 class _Model:
     id: str
+    version: str | None = None
     status: str | None = None
 
 
@@ -78,7 +79,7 @@ def _make_agent(
 ) -> FoundryAgent:
     agent = FoundryAgent.__new__(FoundryAgent)
     agent.guardrails = guardrails or _Guardrails()
-    agent._agent = _Model(id="agent-1")
+    agent._agent = _Model(id="agent-1", version="2")
     agent._agent_name = "secure-agent-integration-test"
     agent._tool_map = tool_map or {}
     agent._obo_client = AsyncMock()
@@ -109,6 +110,9 @@ async def test_chat_sanitises_user_message_before_sending_to_foundry() -> None:
     assert call_kwargs is not None
     input_payload = call_kwargs[1].get("input")
     assert input_payload == "sanitised: hello"
+    agent_reference = call_kwargs[1].get("extra_body", {}).get("agent_reference", {})
+    assert agent_reference.get("name") == "secure-agent-integration-test"
+    assert agent_reference.get("version") == "2"
 
 
 @pytest.mark.asyncio
@@ -142,3 +146,42 @@ async def test_execute_tool_call_redacts_tool_result_before_json_output() -> Non
     output = await agent._execute_tool_call(tool_call, "token")
 
     assert json.loads(output) == {"redacted": "Email [email]"}
+
+
+@pytest.mark.asyncio
+async def test_chat_exchanges_user_token_before_tool_execution() -> None:
+    tool = _Tool()
+    tool.execute = AsyncMock(return_value={"value": "Email ava@example.com"})
+    agent = _make_agent(
+        tool_map={"lookup": tool},
+        responses=[
+            MockResponse(
+                output=[
+                    MockResponseItem(
+                        type="function_call",
+                        name="lookup",
+                        arguments=json.dumps({"query": "inbox"}),
+                        call_id="call-1",
+                    )
+                ],
+                output_text="",
+            ),
+            MockResponse(output=[], output_text="final"),
+        ],
+    )
+    agent._obo_client.exchange = AsyncMock(return_value="graph-obo-token")
+
+    response = await agent.chat("hello", "incoming-api-token", None)
+
+    agent._obo_client.exchange.assert_awaited_once_with(
+        "incoming-api-token",
+        scopes=["https://graph.microsoft.com/.default"],
+    )
+    tool.execute.assert_awaited_once_with(token="graph-obo-token", query="inbox")
+    assert response.tool_calls == [
+        {
+            "name": "lookup",
+            "call_id": "call-1",
+            "argument_keys": ["query"],
+        }
+    ]

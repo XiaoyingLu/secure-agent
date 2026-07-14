@@ -145,6 +145,9 @@ class CalendarTool(BaseTool):
         """
         input_data = CalendarToolInput(**kwargs)
 
+        if not token or not token.strip():
+            raise ValueError("OBO token is empty. Cannot call Graph API.")
+
         start_str = input_data._fmt(input_data.start_datetime)
         end_str = input_data._fmt(input_data.end_datetime)
 
