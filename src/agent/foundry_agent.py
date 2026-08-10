@@ -480,7 +480,11 @@ class FoundryAgent:
         return json.dumps(result)
 
 def discover_base_tools() -> list[BaseTool]:
-    """Instantiate all no-argument ``BaseTool`` subclasses in ``tools``."""
+    """Instantiate all no-argument ``BaseTool`` subclasses in ``tools``.
+
+    When ``ENABLED_TOOLS`` is set, only tools whose names appear in the
+    comma-separated allowlist are included.
+    """
     import tools as tools_package
 
     for module_info in pkgutil.iter_modules(tools_package.__path__):
@@ -488,14 +492,24 @@ def discover_base_tools() -> list[BaseTool]:
             continue
         importlib.import_module(f"{tools_package.__name__}.{module_info.name}")
 
+    enabled_env = os.getenv("ENABLED_TOOLS", "").strip()
+    allowlist: frozenset[str] | None = (
+        frozenset(t.strip() for t in enabled_env.split(",") if t.strip())
+        if enabled_env
+        else None
+    )
+
     discovered: list[BaseTool] = []
     for subclass in BaseTool.__subclasses__():
         if inspect.isabstract(subclass):
             continue
         try:
-            discovered.append(subclass())
+            instance = subclass()
         except TypeError:
             logger.debug("Skipping BaseTool subclass requiring constructor args: %s", subclass)
+            continue
+        if allowlist is None or instance.name in allowlist:
+            discovered.append(instance)
     return discovered
 
 
