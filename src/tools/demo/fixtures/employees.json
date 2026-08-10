@@ -1,0 +1,12 @@
+[
+  {"id": "emp001", "name": "Alice Chen", "role": "Software Engineer", "department": "Engineering", "manager": "Bob Smith", "onboarding_complete": true, "start_date": "2025-03-01"},
+  {"id": "emp002", "name": "Bob Smith", "role": "Engineering Manager", "department": "Engineering", "manager": "Carol Davis", "onboarding_complete": true, "start_date": "2023-01-15"},
+  {"id": "emp003", "name": "Carol Davis", "role": "VP Engineering", "department": "Engineering", "manager": null, "onboarding_complete": true, "start_date": "2022-06-01"},
+  {"id": "emp004", "name": "Dan Lee", "role": "Product Manager", "department": "Product", "manager": "Carol Davis", "onboarding_complete": true, "start_date": "2024-09-10"},
+  {"id": "emp005", "name": "Eve Patel", "role": "Data Scientist", "department": "AI", "manager": "Carol Davis", "onboarding_complete": false, "start_date": "2026-07-28"},
+  {"id": "emp006", "name": "Frank Nguyen", "role": "DevOps Engineer", "department": "Engineering", "manager": "Bob Smith", "onboarding_complete": true, "start_date": "2024-02-14"},
+  {"id": "emp007", "name": "Grace Kim", "role": "Security Engineer", "department": "Security", "manager": "Carol Davis", "onboarding_complete": true, "start_date": "2023-11-01"},
+  {"id": "emp008", "name": "Hiro Tanaka", "role": "UX Designer", "department": "Product", "manager": "Dan Lee", "onboarding_complete": false, "start_date": "2026-08-04"},
+  {"id": "emp009", "name": "Iris Johansson", "role": "Finance Analyst", "department": "Finance", "manager": "Carol Davis", "onboarding_complete": true, "start_date": "2024-05-20"},
+  {"id": "emp010", "name": "James Wright", "role": "Sales Lead", "department": "Sales", "manager": "Carol Davis", "onboarding_complete": true, "start_date": "2023-08-07"}
+]

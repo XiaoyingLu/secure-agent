@@ -57,6 +57,7 @@ class Settings:
     entra_redirect_uris: list[str]
     graph_health_check_token: str | None = None
     azure_key_vault_url: str | None = None
+    demo_mode: bool = False
 
     _REQUIRED_ENV_KEYS: ClassVar[tuple[str, ...]] = (
         ENV_ENTRA_TENANT_ID,
@@ -137,6 +138,7 @@ class Settings:
                 _get_optional(KV_SECRET_ENTRA_REDIRECT_URIS)
             ),
             graph_health_check_token=_get_optional(KV_SECRET_GRAPH_HEALTH_CHECK_TOKEN),
+            demo_mode=os.getenv("DEMO_MODE", "false").lower() == "true",
         )
 
     @classmethod
@@ -171,6 +173,7 @@ class Settings:
             ],
             entra_redirect_uris=cls._parse_list(os.getenv(ENV_ENTRA_REDIRECT_URIS)),
             graph_health_check_token=os.getenv(ENV_GRAPH_HEALTH_CHECK_TOKEN),
+            demo_mode=os.getenv("DEMO_MODE", "false").lower() == "true",
         )
 
     @staticmethod

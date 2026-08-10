@@ -1,0 +1,7 @@
+[
+  {"team": "Engineering", "quarter": "Q3 2026", "allocated": 420000, "spent": 187000, "currency": "USD", "owner": "Bob Smith"},
+  {"team": "Product", "quarter": "Q3 2026", "allocated": 150000, "spent": 72000, "currency": "USD", "owner": "Dan Lee"},
+  {"team": "AI", "quarter": "Q3 2026", "allocated": 280000, "spent": 94000, "currency": "USD", "owner": "Carol Davis"},
+  {"team": "Security", "quarter": "Q3 2026", "allocated": 200000, "spent": 118000, "currency": "USD", "owner": "Grace Kim"},
+  {"team": "Finance", "quarter": "Q3 2026", "allocated": 80000, "spent": 31000, "currency": "USD", "owner": "Iris Johansson"}
+]

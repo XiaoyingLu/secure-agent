@@ -52,3 +52,26 @@ export async function postChat(
 
   return (await response.json()) as ChatResponse;
 }
+
+export type AuditEntry = {
+  user: string;
+  tool: string;
+  args: Record<string, unknown>;
+  status: "allowed" | "blocked";
+  timestamp: string;
+  reason: string | null;
+};
+
+export type AuditLogResponse = {
+  entries: AuditEntry[];
+};
+
+export async function fetchAuditLog(token: string): Promise<AuditLogResponse> {
+  const response = await fetch(`${apiBaseUrl}/audit`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    return { entries: [] };
+  }
+  return response.json() as Promise<AuditLogResponse>;
+}

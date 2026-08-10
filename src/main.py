@@ -29,6 +29,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = Settings.load()
     app.state.settings = settings
 
+    if settings.demo_mode:
+        from audit.audit_logger import AuditLogger
+        app.state.audit_logger = AuditLogger()
+        logger.info("Demo mode enabled — AuditLogger initialised")
+
     v2_issuer = f"https://login.microsoftonline.com/{settings.entra_tenant_id}/v2.0"
     v1_issuer = f"https://sts.windows.net/{settings.entra_tenant_id}/"
     jwt_validator = EntraJWTValidator(

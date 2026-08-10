@@ -2,7 +2,7 @@ import { FormEvent, useMemo, useState, useEffect } from "react";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 
-import { postChat, AuthenticationError } from "./api";
+import { postChat, fetchAuditLog, AuthenticationError, AuditEntry } from "./api";
 import { acquireApiToken, hasMsalConfig, loginRequest } from "./msalConfig";
 
 type ChatMessage = {
@@ -37,6 +37,8 @@ export default function App() {
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
 
   const signedInUser = useMemo(() => accounts[0]?.username ?? "", [accounts]);
 
@@ -46,6 +48,29 @@ export default function App() {
       instance.setActiveAccount(accounts[0] ?? null);
     }
   }, [accounts, instance]);
+
+  useEffect(() => {
+    if (!auditOpen || !isAuthenticated) return;
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const token = await acquireApiToken();
+        if (cancelled) return;
+        const log = await fetchAuditLog(token);
+        if (!cancelled) setAuditEntries(log.entries);
+      } catch {
+        // silent — panel shows stale data if token expires
+      }
+    }
+
+    void poll();
+    const id = setInterval(() => void poll(), 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [auditOpen, isAuthenticated, instance]);
 
   async function handleLogin() {
     setError(null);
@@ -127,6 +152,7 @@ export default function App() {
   }
 
   return (
+    <>
     <div className="app-shell">
       <header className="topbar">
         <div>
@@ -195,5 +221,32 @@ export default function App() {
         </button>
       </form>
     </div>
+
+      {isAuthenticated && (
+        <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, display: "flex", flexDirection: "column", zIndex: 100 }}>
+          <button
+            onClick={() => setAuditOpen(o => !o)}
+            style={{ writingMode: "vertical-rl", padding: "12px 6px", background: "#1e293b", color: "#94a3b8", border: "none", cursor: "pointer", fontSize: 12 }}
+          >
+            {auditOpen ? "Hide Audit Log" : "Show Audit Log"}
+          </button>
+          {auditOpen && (
+            <div style={{ width: 340, background: "#0f172a", color: "#e2e8f0", overflowY: "auto", flex: 1, padding: 12, fontSize: 12, fontFamily: "monospace" }}>
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#94a3b8" }}>AUDIT LOG (last 20)</div>
+              {auditEntries.length === 0 && <div style={{ color: "#475569" }}>No entries yet.</div>}
+              {[...auditEntries].reverse().map((e, i) => (
+                <div key={i} style={{ marginBottom: 8, padding: 6, borderRadius: 4, background: e.status === "blocked" ? "#450a0a" : "#0c1a0c", borderLeft: `3px solid ${e.status === "blocked" ? "#ef4444" : "#22c55e"}` }}>
+                  <div style={{ color: e.status === "blocked" ? "#ef4444" : "#22c55e", fontWeight: 700 }}>{e.status.toUpperCase()}</div>
+                  <div><span style={{ color: "#94a3b8" }}>tool:</span> {e.tool}</div>
+                  <div><span style={{ color: "#94a3b8" }}>user:</span> {e.user}</div>
+                  {e.reason && <div><span style={{ color: "#94a3b8" }}>reason:</span> {e.reason}</div>}
+                  <div style={{ color: "#475569" }}>{new Date(e.timestamp).toLocaleTimeString()}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }

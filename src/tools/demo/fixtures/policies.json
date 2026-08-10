@@ -1,0 +1,12 @@
+[
+  {"id": "pol001", "title": "Remote Work Policy", "keywords": ["remote", "work from home", "wfh", "hybrid"], "summary": "Employees may work remotely up to 3 days per week with manager approval. Core hours are 10am–3pm local time."},
+  {"id": "pol002", "title": "Expense Reimbursement Policy", "keywords": ["expense", "reimbursement", "receipt", "claim"], "summary": "Expenses under $100 are auto-approved. Over $100 requires manager sign-off. Receipts must be submitted within 30 days."},
+  {"id": "pol003", "title": "Data Classification Policy", "keywords": ["data", "classification", "confidential", "sensitive", "pii"], "summary": "Data is classified as Public, Internal, Confidential, or Restricted. PII is always Restricted. Restricted data must not leave the VNet."},
+  {"id": "pol004", "title": "Access Control Policy", "keywords": ["access", "permission", "least privilege", "rbac", "role"], "summary": "All system access follows least-privilege. Role assignments require manager approval and are reviewed quarterly."},
+  {"id": "pol005", "title": "Incident Response Policy", "keywords": ["incident", "breach", "security", "response", "escalation"], "summary": "Security incidents must be reported to the Security team within 1 hour. The CISO is notified for P1/P2 incidents."},
+  {"id": "pol006", "title": "Acceptable Use Policy", "keywords": ["acceptable use", "computer use", "internet", "equipment"], "summary": "Company equipment may only be used for business purposes. Personal use is limited to break times."},
+  {"id": "pol007", "title": "Code Review Policy", "keywords": ["code review", "pull request", "pr", "merge"], "summary": "All code changes require at least one approving review before merge. Security-sensitive paths require a Security Engineer review."},
+  {"id": "pol008", "title": "Onboarding Policy", "keywords": ["onboarding", "new hire", "orientation", "first day"], "summary": "New hires must complete IT setup, security training, and policy acknowledgements within the first 5 business days."},
+  {"id": "pol009", "title": "Leave Policy", "keywords": ["leave", "vacation", "pto", "holiday", "sick"], "summary": "Employees receive 20 days PTO per year. Sick leave is separate and unlimited. Leave requests must be submitted 2 weeks in advance."},
+  {"id": "pol010", "title": "AI Tool Usage Policy", "keywords": ["ai", "llm", "copilot", "generative", "chatgpt"], "summary": "AI tools may only be used with company-approved accounts. No confidential data may be submitted to external AI services."}
+]

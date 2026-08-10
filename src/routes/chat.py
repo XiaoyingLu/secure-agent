@@ -113,6 +113,10 @@ async def post_chat(
                 detail="Request timed out. The agent took too long to respond. Please try again.",
             ) from None
     except PromptInjectionError as exc:
+        audit_logger = getattr(request.app.state, "audit_logger", None)
+        if audit_logger is not None:
+            display_user = user.get("preferred_username") or user.get("oid") or "unknown" if isinstance(user, dict) else "unknown"
+            audit_logger.log(display_user, "input_check", {"message": body.message[:100]}, "blocked", reason="prompt_injection")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -184,6 +188,18 @@ async def post_chat(
 
     tool_calls = getattr(result, "tool_calls", []) or []
     conversation_id = result.conversation_id if hasattr(result, "conversation_id") else ""
+
+    audit_logger = getattr(request.app.state, "audit_logger", None)
+    if audit_logger is not None:
+        display_user = user.get("preferred_username") or user.get("oid") or "unknown" if isinstance(user, dict) else "unknown"
+        for tc in tool_calls:
+            audit_logger.log(
+                user=display_user,
+                tool=tc.get("tool", "unknown") if isinstance(tc, dict) else str(tc),
+                args=tc.get("args", {}) if isinstance(tc, dict) else {},
+                status="allowed",
+            )
+
     logger.info(
         "chat.response",
         extra={
