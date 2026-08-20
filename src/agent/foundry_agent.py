@@ -173,9 +173,9 @@ class FoundryAgent:
             )
 
         self.poll_interval_seconds = poll_interval_seconds
-        self.system_prompt = _read_system_prompt()
         self.guardrails = guardrails or Guardrails()
         self.tools = list(tools) if tools is not None else discover_base_tools()
+        self.system_prompt = _read_system_prompt() + _describe_extra_tools(self.tools)
         self._tool_map = {tool.name: tool for tool in self.tools}
         if len(self._tool_map) != len(self.tools):
             raise ValueError("Tool names must be unique")
@@ -515,6 +515,26 @@ def discover_base_tools() -> list[BaseTool]:
 
 def _read_system_prompt() -> str:
     return (Path(__file__).parent / "system_prompt.txt").read_text(encoding="utf-8")
+
+
+# Tools already documented in system_prompt.txt; anything else is described dynamically
+# so the model learns about it (e.g. demo/internal tools) without editing the static prompt.
+_DOCUMENTED_TOOL_NAMES = frozenset({"get_my_emails", "get_my_events", "search_sharepoint"})
+
+
+def _describe_extra_tools(tools: Iterable[BaseTool]) -> str:
+    """Build a system-prompt appendix describing tools not covered in system_prompt.txt."""
+    extra = [tool for tool in tools if tool.name not in _DOCUMENTED_TOOL_NAMES]
+    if not extra:
+        return ""
+    lines = ["\n\n## Additional available tools\n"]
+    for tool in extra:
+        lines.append(f"- **{tool.name}** — {tool.description}")
+    lines.append(
+        "\nThese tools are real and callable. Call them directly when relevant instead of "
+        "assuming the requested data lives in email, calendar, or SharePoint/OneDrive."
+    )
+    return "\n".join(lines)
 
 
 def _env_first(*names: str) -> str | None:
