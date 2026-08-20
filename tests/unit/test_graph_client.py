@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from graph.graph_client import (
+from secure_agent.graph.graph_client import (
     GraphAuthError,
     GraphClient,
     GraphClientError,
@@ -212,7 +212,7 @@ async def test_get_events_success(graph_client, mock_http, mocker):
 @pytest.mark.asyncio
 async def test_owned_client_lifecycle(mocker):
     mock_client = mocker.AsyncMock(spec=httpx.AsyncClient)
-    mocker.patch("graph.graph_client.httpx.AsyncClient", return_value=mock_client)
+    mocker.patch("secure_agent.graph.graph_client.httpx.AsyncClient", return_value=mock_client)
 
     async with GraphClient() as client:
         mock_client.get.return_value = _mock_response(

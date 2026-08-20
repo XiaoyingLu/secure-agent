@@ -2,8 +2,12 @@
 
 import pytest
 
-from graph.graph_client import GraphAuthError, GraphPermissionError, GraphRateLimitError
-from tools.email_tool import EmailTool, EmailToolInput
+from secure_agent.graph.graph_client import (
+    GraphAuthError,
+    GraphPermissionError,
+    GraphRateLimitError,
+)
+from secure_agent.tools.email_tool import EmailTool, EmailToolInput
 
 
 @pytest.fixture
@@ -93,7 +97,7 @@ def test_email_tool_input_validation_top_maximum():
 @pytest.mark.asyncio
 async def test_email_tool_execute_success(email_tool, mocker, mock_graph_response):
     """Test successful email retrieval."""
-    mock_graph_client = mocker.patch("tools.email_tool.GraphClient")
+    mock_graph_client = mocker.patch("secure_agent.tools.email_tool.GraphClient")
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
     mock_client_instance.get_messages.return_value = mock_graph_response
@@ -120,7 +124,7 @@ async def test_email_tool_execute_success(email_tool, mocker, mock_graph_respons
 @pytest.mark.asyncio
 async def test_email_tool_execute_with_filter_unread(email_tool, mocker):
     """Test email retrieval with filter_unread=True."""
-    mock_graph_client = mocker.patch("tools.email_tool.GraphClient")
+    mock_graph_client = mocker.patch("secure_agent.tools.email_tool.GraphClient")
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
     mock_client_instance.get_messages.return_value = []
@@ -137,7 +141,7 @@ async def test_email_tool_execute_with_filter_unread(email_tool, mocker):
 @pytest.mark.asyncio
 async def test_email_tool_execute_empty_response(email_tool, mocker):
     """Test email retrieval with no messages."""
-    mock_graph_client = mocker.patch("tools.email_tool.GraphClient")
+    mock_graph_client = mocker.patch("secure_agent.tools.email_tool.GraphClient")
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
     mock_client_instance.get_messages.return_value = []
@@ -150,7 +154,7 @@ async def test_email_tool_execute_empty_response(email_tool, mocker):
 @pytest.mark.asyncio
 async def test_email_tool_execute_429_rate_limit_error(email_tool, mocker):
     """Test email retrieval propagates 429 rate limit error."""
-    mock_graph_client = mocker.patch("tools.email_tool.GraphClient")
+    mock_graph_client = mocker.patch("secure_agent.tools.email_tool.GraphClient")
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
 
@@ -167,7 +171,7 @@ async def test_email_tool_execute_429_rate_limit_error(email_tool, mocker):
 @pytest.mark.asyncio
 async def test_email_tool_execute_401_auth_error(email_tool, mocker):
     """Test email retrieval propagates 401 auth error."""
-    mock_graph_client = mocker.patch("tools.email_tool.GraphClient")
+    mock_graph_client = mocker.patch("secure_agent.tools.email_tool.GraphClient")
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
 
@@ -184,7 +188,7 @@ async def test_email_tool_execute_401_auth_error(email_tool, mocker):
 @pytest.mark.asyncio
 async def test_email_tool_execute_403_permission_error(email_tool, mocker):
     """Test email retrieval propagates 403 permission error."""
-    mock_graph_client = mocker.patch("tools.email_tool.GraphClient")
+    mock_graph_client = mocker.patch("secure_agent.tools.email_tool.GraphClient")
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
 
@@ -244,7 +248,7 @@ async def test_email_tool_strip_html_unclosed_tags(email_tool):
 @pytest.mark.asyncio
 async def test_email_tool_body_preview_stripped_in_result(email_tool, mocker):
     """Test bodyPreview HTML is stripped in returned result."""
-    mock_graph_client = mocker.patch("tools.email_tool.GraphClient")
+    mock_graph_client = mocker.patch("secure_agent.tools.email_tool.GraphClient")
     mock_client_instance = mocker.AsyncMock()
     mock_graph_client.return_value.__aenter__.return_value = mock_client_instance
 

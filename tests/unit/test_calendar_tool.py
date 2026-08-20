@@ -11,10 +11,14 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from graph.graph_client import GraphAuthError, GraphPermissionError, GraphRateLimitError
-from tools.calendar_tool import CalendarTool, CalendarToolInput
+from secure_agent.graph.graph_client import (
+    GraphAuthError,
+    GraphPermissionError,
+    GraphRateLimitError,
+)
+from secure_agent.tools.calendar_tool import CalendarTool, CalendarToolInput
 
-PATCH_TARGET = "tools.calendar_tool.GraphClient"
+PATCH_TARGET = "secure_agent.tools.calendar_tool.GraphClient"
 FAKE_TOKEN = "obo-token-calendar"  # noqa: S105
 
 

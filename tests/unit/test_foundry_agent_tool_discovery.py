@@ -3,8 +3,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from agent.foundry_agent import _parse_enabled_tools_from_env, discover_base_tools
-from tools.base_tool import BaseTool
+from secure_agent.agent.foundry_agent import _parse_enabled_tools_from_env, discover_base_tools
+from secure_agent.tools.base_tool import BaseTool
 
 
 class _EnabledTool(BaseTool):
@@ -38,8 +38,11 @@ def _fake_module_info(name: str) -> SimpleNamespace:
 
 def test_discover_base_tools_filters_by_enabled_tool_names() -> None:
     with (
-        patch("agent.foundry_agent.pkgutil.iter_modules", return_value=[_fake_module_info("email_tool")]),
-        patch("agent.foundry_agent.importlib.import_module"),
+        patch(
+            "secure_agent.agent.foundry_agent.pkgutil.iter_modules",
+            return_value=[_fake_module_info("email_tool")],
+        ),
+        patch("secure_agent.agent.foundry_agent.importlib.import_module"),
         patch.object(
             BaseTool,
             "__subclasses__",
@@ -53,8 +56,12 @@ def test_discover_base_tools_filters_by_enabled_tool_names() -> None:
 
 def test_discover_base_tools_returns_all_when_allowlist_is_unset() -> None:
     with (
-        patch("agent.foundry_agent.pkgutil.iter_modules", return_value=[_fake_module_info("email_tool")]),
-        patch("agent.foundry_agent.importlib.import_module"),
+        patch.dict("os.environ", {"ENABLED_TOOLS": ""}, clear=False),
+        patch(
+            "secure_agent.agent.foundry_agent.pkgutil.iter_modules",
+            return_value=[_fake_module_info("email_tool")],
+        ),
+        patch("secure_agent.agent.foundry_agent.importlib.import_module"),
         patch.object(
             BaseTool,
             "__subclasses__",

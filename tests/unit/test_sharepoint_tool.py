@@ -10,10 +10,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from graph.graph_client import GraphAuthError, GraphPermissionError, GraphRateLimitError
-from tools.sharepoint_tool import SharePointTool, SharePointToolInput
+from secure_agent.graph.graph_client import (
+    GraphAuthError,
+    GraphPermissionError,
+    GraphRateLimitError,
+)
+from secure_agent.tools.sharepoint_tool import SharePointTool, SharePointToolInput
 
-PATCH_TARGET = "tools.sharepoint_tool.GraphClient"
+PATCH_TARGET = "secure_agent.tools.sharepoint_tool.GraphClient"
 FAKE_TOKEN = "obo-token-sharepoint"  # noqa: S105
 
 

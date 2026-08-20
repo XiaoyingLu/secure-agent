@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from audit.audit_logger import AuditEntry, AuditLogger
+from secure_agent.audit.audit_logger import AuditEntry, AuditLogger
 
 
 def test_log_and_retrieve():

@@ -7,12 +7,20 @@ from unittest.mock import AsyncMock
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from agent.foundry_agent import AgentResponse
-from agent.guardrails import ContentPolicyViolationError, PromptInjectionError
-from auth.obo_client import OBOError
-from auth.rbac import AGENT_USER_ROLE_NAME
-from graph.graph_client import GraphAuthError, GraphPermissionError, GraphRateLimitError
-from routes.chat import get_foundry_agent, router
+from secure_agent.agent.foundry_agent import AgentResponse
+from secure_agent.agent.guardrails import (
+    ContentPolicyViolationError,
+    PromptInjectionError,
+)
+from secure_agent.auth.obo_client import OBOError
+from secure_agent.auth.rbac import AGENT_USER_ROLE_NAME
+from secure_agent.graph.graph_client import (
+    GraphAuthError,
+    GraphPermissionError,
+    GraphRateLimitError,
+)
+from secure_agent.api.routes.chat import get_foundry_agent, router
+from secure_agent.security.token_guard import extract_delegated_token
 
 
 @dataclass
@@ -195,3 +203,14 @@ def test_chat_returns_retry_after_for_graph_rate_limit() -> None:
 
     assert response.status_code == 429
     assert response.headers.get("Retry-After") == "30"
+
+
+def test_extract_delegated_token_supports_auth_state_variants() -> None:
+    user = {"sub": "user-1", "access_token": "delegated-1"}
+    assert extract_delegated_token(user) == "delegated-1"
+
+    user = {"sub": "user-1", "token": "delegated-2"}
+    assert extract_delegated_token(user) == "delegated-2"
+
+    user = {"sub": "user-1", "obo_token": "delegated-3"}
+    assert extract_delegated_token(user) == "delegated-3"

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent.guardrails import (
+from secure_agent.agent.guardrails import (
     ContentPolicyViolationError,
     Guardrails,
     PromptInjectionError,

@@ -6,10 +6,10 @@ import pytest
 
 os.environ.setdefault("DEMO_MODE", "true")
 
-from tools.demo.hr_tool import HRTool
-from tools.demo.it_tool import ITTool
-from tools.demo.policy_tool import PolicyTool
-from tools.demo.budget_tool import BudgetTool
+from secure_agent.tools.demo.hr_tool import HRTool
+from secure_agent.tools.demo.it_tool import ITTool
+from secure_agent.tools.demo.policy_tool import PolicyTool
+from secure_agent.tools.demo.budget_tool import BudgetTool
 
 
 @pytest.mark.asyncio

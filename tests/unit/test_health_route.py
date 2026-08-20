@@ -7,14 +7,14 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from auth.rbac import AGENT_ADMIN_ROLE_NAME
-from graph.graph_client import (
+from secure_agent.auth.rbac import AGENT_ADMIN_ROLE_NAME
+from secure_agent.graph.graph_client import (
     GraphAuthError,
     GraphClientError,
     GraphPermissionError,
     GraphRateLimitError,
 )
-from routes.health import APP_VERSION, ENV_GRAPH_HEALTH_CHECK_TOKEN, router
+from secure_agent.api.routes.health import APP_VERSION, ENV_GRAPH_HEALTH_CHECK_TOKEN, router
 
 
 @pytest.fixture

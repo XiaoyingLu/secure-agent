@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from auth.rbac import (
+from secure_agent.auth.rbac import (
     AGENT_ADMIN_ROLE_NAME,
     AGENT_USER_ROLE_NAME,
     FORBIDDEN_DETAIL,

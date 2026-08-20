@@ -1,8 +1,8 @@
 import asyncio
 import os
 import msal
-from config import Settings
-from auth.token_validator import EntraJWTValidator
+from secure_agent.config import Settings
+from secure_agent.auth.token_validator import EntraJWTValidator
 
 async def test_token_flow():
     """

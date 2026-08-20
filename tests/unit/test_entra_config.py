@@ -1,6 +1,6 @@
 import pytest
 
-from auth.entra_config import (
+from secure_agent.auth.entra_config import (
     ENV_ENTRA_CLIENT_ID,
     ENV_ENTRA_DELEGATED_SCOPES,
     ENV_ENTRA_REDIRECT_URIS,

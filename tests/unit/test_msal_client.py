@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from auth.msal_client import (
+from secure_agent.auth.msal_client import (
     MSALAuthenticationError,
     MSALClient,
     generate_pkce_pair,

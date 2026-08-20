@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import os
 
+from azure.core.exceptions import HttpResponseError
 from azure.identity import ClientSecretCredential
 import pytest
 from dotenv import load_dotenv
 
-from agent.foundry_agent import (
+from secure_agent.agent.foundry_agent import (
     ENV_MODEL_DEPLOYMENT,
     ENV_MODEL_DEPLOYMENT_LEGACY,
     ENV_PROJECT_ENDPOINT,
@@ -46,13 +47,20 @@ async def test_foundry_agent_chat_against_real_endpoint() -> None:
         client_secret=os.getenv("ENTRA_CLIENT_SECRET")
     )
     
-    agent = FoundryAgent(
-        project_endpoint=endpoint,
-        model_deployment_name=model,
-        agent_name="secure-agent-integration-test",
-        poll_interval_seconds=0.5,
-        credential=credential,
-    )
+    try:
+        agent = FoundryAgent(
+            project_endpoint=endpoint,
+            model_deployment_name=model,
+            agent_name="secure-agent-integration-test",
+            poll_interval_seconds=0.5,
+            credential=credential,
+        )
+    except HttpResponseError as exc:
+        pytest.skip(
+            "Foundry agent creation requires Microsoft.CognitiveServices/accounts/AIServices/agents/write permissions: "
+            f"{exc}"
+        )
+
     try:
         response = await agent.chat(
             user_message=(

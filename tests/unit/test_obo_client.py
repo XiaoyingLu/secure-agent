@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from auth.obo_client import OBOClient, OBOError
+from secure_agent.auth.obo_client import OBOClient, OBOError
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ async def test_exchange_raises_when_access_token_missing(obo_client, mock_cca):
 @pytest.mark.asyncio
 async def test_exchange_uses_cache_until_expiry(obo_client, mock_cca, monkeypatch):
     now = 1_700_000_000.0
-    monkeypatch.setattr("auth.obo_client.time.time", lambda: now)
+    monkeypatch.setattr("secure_agent.auth.obo_client.time.time", lambda: now)
     mock_cca.acquire_token_on_behalf_of.return_value = {
         "access_token": "cached-token",
         "expires_on": int(now) + 3600,
@@ -79,7 +79,7 @@ async def test_exchange_refetches_after_cache_expiry(obo_client, mock_cca, monke
     def fake_time() -> float:
         return times[-1]
 
-    monkeypatch.setattr("auth.obo_client.time.time", fake_time)
+    monkeypatch.setattr("secure_agent.auth.obo_client.time.time", fake_time)
     mock_cca.acquire_token_on_behalf_of.side_effect = [
         {"access_token": "token-a", "expires_on": int(now) + 60},
         {"access_token": "token-b", "expires_on": int(now) + 3600},

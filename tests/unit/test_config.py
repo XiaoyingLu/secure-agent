@@ -3,7 +3,7 @@ import os
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
 
-from config import (
+from secure_agent.config import (
     ENV_APPLICATIONINSIGHTS_CONNECTION_STRING,
     ENV_AZURE_CONTENT_SAFETY_ENDPOINT,
     ENV_AZURE_CONTENT_SAFETY_KEY,

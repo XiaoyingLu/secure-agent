@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from jwt.algorithms import RSAAlgorithm
 from starlette.testclient import TestClient
 
-from auth.token_validator import (
+from secure_agent.auth.token_validator import (
     INVALID_TOKEN_BODY,
     EntraJWTMiddleware,
     EntraJWTValidator,

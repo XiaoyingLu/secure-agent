@@ -163,12 +163,17 @@ export default function App() {
           {isAuthenticated ? (
             <>
               <span className="user-pill">{signedInUser}</span>
-              <button className="ghost" type="button" onClick={handleLogout}>
+              <button className="ghost signout-button" type="button" onClick={handleLogout}>
                 Sign out
               </button>
             </>
           ) : (
-            <button type="button" onClick={handleLogin} disabled={!hasMsalConfig}>
+            <button
+              className="microsoft-signin"
+              type="button"
+              onClick={handleLogin}
+              disabled={!hasMsalConfig}
+            >
               Sign in with Microsoft
             </button>
           )}

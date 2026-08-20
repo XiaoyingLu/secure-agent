@@ -3,8 +3,8 @@ import json
 import pytest
 from mcp.shared.exceptions import McpError
 
-from tools.base_tool import BaseTool
-from tools.mcp_server import MCPToolServer, OBO_TOKEN_ARGUMENT
+from secure_agent.mcp.server import MCPToolServer, OBO_TOKEN_ARGUMENT
+from secure_agent.tools.base_tool import BaseTool
 
 
 class MockTool(BaseTool):

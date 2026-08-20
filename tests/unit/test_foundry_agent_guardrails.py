@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent.foundry_agent import FoundryAgent
-from tools.base_tool import BaseTool
+from secure_agent.agent.foundry_agent import FoundryAgent
+from secure_agent.tools.base_tool import BaseTool
 
 
 @dataclass

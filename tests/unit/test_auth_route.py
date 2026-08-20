@@ -6,7 +6,7 @@ from unittest.mock import Mock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from routes.auth import router
+from secure_agent.api.routes.auth import router
 
 
 @dataclass

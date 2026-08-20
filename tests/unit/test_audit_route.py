@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from audit.audit_logger import AuditLogger
 from fastapi import FastAPI
+from secure_agent.audit.audit_logger import AuditLogger
 from fastapi.testclient import TestClient
 
-from routes.audit import router
+from secure_agent.api.routes.audit import router
 
 
 def _make_app(logger: AuditLogger | None = None) -> FastAPI:
