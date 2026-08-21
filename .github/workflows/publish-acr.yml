@@ -1,0 +1,67 @@
+name: Publish Container To ACR
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Optional image tag override"
+        required: false
+        type: string
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR_NAME: ${{ vars.ACR_NAME }}
+  IMAGE_REPOSITORY: secure-agent
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve image tag
+        id: meta
+        shell: bash
+        run: |
+          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build image
+        run: docker build -t $IMAGE_REPOSITORY:ci .
+
+      - name: Login to ACR
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Tag and push
+        shell: bash
+        run: |
+          LOGIN_SERVER="${ACR_NAME}.azurecr.io"
+          VERSION_TAG="${LOGIN_SERVER}/${IMAGE_REPOSITORY}:${{ steps.meta.outputs.tag }}"
+          LATEST_TAG="${LOGIN_SERVER}/${IMAGE_REPOSITORY}:latest"
+
+          docker tag "$IMAGE_REPOSITORY:ci" "$VERSION_TAG"
+          docker tag "$IMAGE_REPOSITORY:ci" "$LATEST_TAG"
+
+          docker push "$VERSION_TAG"
+          docker push "$LATEST_TAG"
+
+          echo "Published $VERSION_TAG"
+          echo "Published $LATEST_TAG"

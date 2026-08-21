@@ -30,57 +30,111 @@ Deliver a production-hardened AI agent that enforces zero-trust, least-privilege
 
 ```
 secure-agent/
-├── infra/                    # Bicep IaC modules
+├── .github/
+│   └── workflows/
+│       ├── ci.yml              # lint + tests + security checks
+│       └── deploy.yml          # Bicep/Azure deployment flow
+├── docs/
+│   ├── architecture/
+│   ├── deployment/
+│   └── security/
+├── infra/
 │   ├── main.bicep
 │   ├── modules/
-│   │   ├── keyvault.bicep
-│   │   ├── container-app.bicep
-│   │   ├── apim.bicep
-│   │   └── vnet.bicep
+│   │   ├── ai-foundry.bicep
+│   │   ├── app-registration.md
+│   │   └── keyvault.bicep
+├── scripts/
+│   ├── publish-acr.ps1
+│   └── bootstrap-dev.ps1
 ├── src/
-│   ├── main.py               # FastAPI app entry point
-│   ├── auth/
-│   │   ├── token_validator.py   # JWT validation middleware
-│   │   ├── obo_client.py        # On-Behalf-Of token exchange
-│   │   └── msal_client.py       # MSAL token cache & refresh
-│   ├── agent/
-│   │   ├── foundry_agent.py     # Azure AI Foundry agent setup
-│   │   ├── orchestrator.py      # Tool planning & retry logic
-│   │   └── guardrails.py        # Content Safety + PII stripping
-│   ├── tools/                   # MCP tool servers
-│   │   ├── base_tool.py         # Abstract MCP tool base class
-│   │   ├── email_tool.py        # GET /me/messages via Graph
-│   │   ├── calendar_tool.py     # GET /me/events via Graph
-│   │   ├── sharepoint_tool.py   # POST /search via Graph
-│   │   └── custom_tool.py       # Template for business APIs
-│   ├── graph/
-│   │   └── graph_client.py      # Microsoft Graph API client
-│   ├── cache/
-│   │   └── semantic_cache.py    # Redis semantic cache layer
-│   ├── audit/
-│   │   └── audit_logger.py      # Immutable tool-call audit log
-│   ├── config.py                # Settings via DefaultAzureCredential
-│   └── routes/
-│       ├── chat.py              # POST /chat endpoint
-│       └── health.py            # GET /health
+│   ├── __init__.py
+│   ├── main.py                 # bootstrap entry
+│   ├── config.py               # settings loader / env config
+│   ├── mcp_server.py           # compatibility export for MCP server
+│   ├── secure_agent/
+│   │   ├── __init__.py         # app factory and lazy package export
+│   │   ├── __main__.py         #python -m secure_agent entry
+│   │   ├── app.py              # FastAPI app factory + middleware wiring
+│   │   ├── bootstrap.py        # lifecycle startup/shutdown hooks
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   ├── deps.py
+│   │   │   └── routes/
+│   │   │       ├── auth.py
+│   │   │       ├── audit.py
+│   │   │       ├── chat.py
+│   │   │       └── health.py
+│   │   ├── auth/
+│   │   │   ├── __init__.py
+│   │   │   ├── entra_config.py
+│   │   │   ├── msal_client.py
+│   │   │   ├── obo_client.py
+│   │   │   ├── rbac.py
+│   │   │   └── token_validator.py
+│   │   ├── agent/
+│   │   │   ├── __init__.py
+│   │   │   ├── foundry_agent.py
+│   │   │   ├── guardrails.py
+│   │   │   └── system_prompt.txt
+│   │   ├── graph/
+│   │   │   ├── __init__.py
+│   │   │   └── graph_client.py
+│   │   ├── tools/
+│   │   │   ├── __init__.py
+│   │   │   ├── base_tool.py
+│   │   │   ├── calendar_tool.py
+│   │   │   ├── email_tool.py
+│   │   │   ├── sharepoint_tool.py
+│   │   │   └── demo/
+│   │   │       ├── __init__.py
+│   │   │       ├── budget_tool.py
+│   │   │       ├── hr_tool.py
+│   │   │       ├── it_tool.py
+│   │   │       └── policy_tool.py
+│   │   ├── audit/
+│   │   │   ├── __init__.py
+│   │   │   └── audit_logger.py
+│   │   ├── cache/
+│   │   │   └── semantic_cache.py
+│   │   ├── security/
+│   │   │   ├── __init__.py
+│   │   │   └── token_guard.py
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── chat_service.py
+│   │   │   └── runtime_service.py
+│   │   ├── mcp/
+│   │   │   ├── __init__.py
+│   │   │   ├── registry.py
+│   │   │   └── server.py
+│   │   └── utils/
+│   │       └── logging.py
 ├── tests/
 │   ├── unit/
 │   ├── integration/
 │   └── e2e/
-├── .github/
-│   └── workflows/
-│       ├── ci.yml               # Lint + test + security scan
-│       └── deploy.yml           # Bicep deploy via WIF
+├── web/
+│   ├── src/
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── index.html
+├── .env.example
+├── .gitignore
 ├── CLAUDE.md
+├── Dockerfile
+├── README.md
 ├── pyproject.toml
-└── README.md
+└── pytest.ini
 ```
 
-- **Main App Entry:** `src/main.py`
-- **Auth Middleware:** `src/auth/token_validator.py`
-- **Agent Entrypoint:** `src/agent/foundry_agent.py`
-- **MCP Tools:** `src/tools/`
-- **API Routes:** `src/routes/`
+- **Main App Entry:** `src/secure_agent/__main__.py` and `src/secure_agent/app.py`
+- **Auth Middleware:** `src/secure_agent/auth/token_validator.py`
+- **Agent Entrypoint:** `src/secure_agent/agent/foundry_agent.py`
+- **Graph Client:** `src/secure_agent/graph/graph_client.py`
+- **MCP Tools:** `src/secure_agent/tools/`
+- **API Routes:** `src/secure_agent/api/routes/`
+- **Runtime Lifecycle:** `src/secure_agent/bootstrap.py` and `src/secure_agent/services/runtime_service.py`
 - **IaC:** `infra/`
 
 ---
@@ -90,7 +144,8 @@ secure-agent/
 Run these exact commands in the terminal when interacting with the project:
 
 - **Install:** `pip install -e ".[dev]"`
-- **Run Locally:** `uvicorn src.main:app --reload --port 8000`
+- **Run Locally:** `python -m secure_agent`
+- **Run Locally (Uvicorn direct):** `uvicorn secure_agent.app:app --reload --port 8000`
 - **Run Tests:** `pytest tests/ -v`
 - **Run Unit Tests Only:** `pytest tests/unit/ -v`
 - **Run with Coverage:** `pytest tests/ --cov=src --cov-report=term-missing`
@@ -125,7 +180,7 @@ For local development, copy `.env.example` to `.env.local` and populate with dev
 
 # Coding Standards & Preferences
 
-- **Architecture:** Keep components strictly modular — one responsibility per file. MCP tools must extend `BaseTool` in `src/tools/base_tool.py`. Never call Graph API directly from routes; always go through `src/graph/graph_client.py`.
+- **Architecture:** Keep components strictly modular — one responsibility per file. MCP tools must extend `BaseTool` in `src/secure_agent/tools/base_tool.py`. Never call Graph API directly from routes; always go through `src/secure_agent/graph/graph_client.py`.
 - **Naming:** `snake_case` for all Python files, functions, and variables. `PascalCase` for classes. Bicep files use `camelCase` parameter names.
 - **Auth invariant:** MCP tools **must always** receive and forward the user's delegated OBO token. Never use a service principal or app-only token for Graph calls. This is the core security contract of the project.
 - **Formatting:** Black (line length 88) + Ruff. All code must pass `ruff check .` and `pyright` before commit.
@@ -138,9 +193,9 @@ For local development, copy `.env.example` to `.env.local` and populate with dev
 ### Prohibitions — Never Do These
 
 - ❌ Do not hard-code secrets, tokens, client secrets, or connection strings anywhere in source or IaC files.
-- ❌ Do not use `requests` for Graph API calls — use `httpx` (async) via `graph_client.py`.
+- ❌ Do not use `requests` for Graph API calls — use `httpx` (async) via `src/secure_agent/graph/graph_client.py`.
 - ❌ Do not call Graph API with app-only (client credentials) tokens. Delegated OBO only.
-- ❌ Do not bypass the guardrails layer (`src/agent/guardrails.py`) when returning LLM output to the user.
+- ❌ Do not bypass the guardrails layer (`src/secure_agent/secure_agent/agent/guardrails.py`) when returning LLM output to the user.
 - ❌ Do not store user data or conversation history in the application database — the audit log records tool-call metadata only, not content.
 - ❌ Do not use `console.log` / `print()` in production code paths.
 - ❌ Do not deploy any resource with a public endpoint — all Azure services must use Private Endpoints inside the VNet.
@@ -154,8 +209,8 @@ These are non-negotiable and must be validated in every PR:
 
 1. **Token forwarding:** Every Graph API call must carry the user's OBO-exchanged delegated access token. Audit this in code review.
 2. **Secret hygiene:** Run `credscan` (Microsoft Security DevOps Action) on every PR. Any detected secret auto-blocks merge.
-3. **Input sanitisation:** All user inputs must pass through `src/agent/guardrails.py` before reaching the LLM.
-4. **Audit logging:** Every MCP tool invocation must write a record to Azure Table Storage via `src/audit/audit_logger.py` before returning its result.
+3. **Input sanitisation:** All user inputs must pass through `src/secure_agent/agent/guardrails.py` before reaching the LLM.
+4. **Audit logging:** Every MCP tool invocation must write a record to Azure Table Storage via `src/secure_agent/audit/audit_logger.py` before returning its result.
 5. **Content Safety:** All LLM outputs must pass Azure AI Content Safety filtering before being returned to the user.
 
 ---

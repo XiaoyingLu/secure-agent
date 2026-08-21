@@ -14,10 +14,8 @@ secure-agent/
 │   ├── main.bicep
 │   ├── modules/
 │   │   ├── ai-foundry.bicep
-│   │   ├── ai-foundry-cross.bicep
-│   │   ├── keyvault.bicep
-│   │   └── vnet.bicep
-│   └── parameters/
+│   │   ├── app-registration.md
+│   │   └── keyvault.bicep
 ├── scripts/
 │   ├── publish-acr.ps1
 │   └── bootstrap-dev.ps1
