@@ -94,18 +94,15 @@ def _assert_graph_audience(token: str) -> None:
     try:
         payload = _decode_jwt_payload(token)
     except Exception:
-        print("[FOUNDRY] _assert_graph_audience: could not decode token")  # DEBUG
         return  # can't decode ΓÇö let Graph reject it with its own error
 
     aud = payload.get("aud")
     if aud is None:
-        print("[FOUNDRY] _assert_graph_audience: no aud claim, skipping")  # DEBUG
         return  # token is not a decodable JWT or has no aud claim ΓÇö skip
 
     # aud may be a string or a list of strings in some token formats.
     aud_values: set[str] = {aud} if isinstance(aud, str) else set(aud)  # type: ignore[arg-type]
 
-    print(f"[FOUNDRY] _assert_graph_audience: aud={aud} aud_values={aud_values} expected={_GRAPH_AUDIENCES}")  # DEBUG
     if not aud_values.intersection(_GRAPH_AUDIENCES):
         logger.error(
             "OBO token audience mismatch: aud=%s is not a Graph resource. "
@@ -113,7 +110,6 @@ def _assert_graph_audience(token: str) -> None:
             "Sites.Read.All delegated permissions with admin consent in Entra.",
             aud,
         )
-        print(f"[FOUNDRY] _assert_graph_audience: raising OBOError for wrong audience")  # DEBUG
         raise OBOError(
             f"OBO token audience '{aud}' is not Microsoft Graph. "
             "Add Graph delegated permissions (Calendars.Read, Mail.Read, "
@@ -133,10 +129,7 @@ def _assert_graph_audience(token: str) -> None:
             granted_scopes,
             missing_scopes,
         )
-        print(f"[FOUNDRY] WARNING: Token missing scopes: {missing_scopes}")  # DEBUG
-        print(f"[FOUNDRY] Token has scopes: {granted_scopes}")  # DEBUG
     
-    print(f"[FOUNDRY] _assert_graph_audience: audience is valid, scopes OK")  # DEBUG
 
 
 @dataclass(frozen=True)
@@ -322,41 +315,15 @@ class FoundryAgent:
                             try:
                                 try:
                                     async with asyncio.timeout(10):
-                                        print(f"[FOUNDRY] Starting OBO exchange with scopes={self.GRAPH_SCOPES}")  # DEBUG
                                         obo_token = await self._obo_client.exchange(
                                             user_token,
                                             scopes=self.GRAPH_SCOPES,
                                         )
-                                        print(f"[FOUNDRY] OBO exchange succeeded: token_len={len(obo_token) if obo_token else 'None'}")  # DEBUG
-                                        if obo_token:
-                                            print(f"[FOUNDRY] OBO token starts: {repr(obo_token[:50])}")  # DEBUG - check for whitespace
-                                            print(f"[FOUNDRY] OBO token ends: {repr(obo_token[-50:])}")  # DEBUG - check for corruption
-                                            parts = obo_token.split(".")
-                                            print(f"[FOUNDRY] OBO token parts: {len(parts)} (expected 3)")  # DEBUG - JWT must have 3 parts
-
                                 except TimeoutError:
                                     logger.error("OBO token exchange timed out after 10 seconds")
                                     raise TimeoutError("Token exchange timed out. Please try again.")
                                 logger.debug("OBO token acquired successfully")
                                 _log_token_claims(obo_token)
-                                # Full token decode for diagnostics
-                                try:
-                                    payload = _decode_jwt_payload(obo_token)
-                                    import time as _time
-                                    now = _time.time()
-                                    exp = payload.get('exp')
-                                    nbf = payload.get('nbf')
-                                    iss = payload.get('iss')
-                                    oid = payload.get('oid')
-                                    tid = payload.get('tid')
-                                    scp = payload.get('scp', '')
-                                    print(f"[FOUNDRY] Token exp={exp} nbf={nbf} now={now}")  # DEBUG
-                                    print(f"[FOUNDRY] Token expired={exp and now > exp} not_yet_valid={nbf and now < nbf}")  # DEBUG
-                                    print(f"[FOUNDRY] Token iss={iss}")  # DEBUG
-                                    print(f"[FOUNDRY] Token oid={oid} tid={tid}")  # DEBUG
-                                    print(f"[FOUNDRY] Token scp={scp}")  # DEBUG - CRITICAL: check for Calendars.Read
-                                except Exception as e:
-                                    print(f"[FOUNDRY] Error decoding token: {e}")  # DEBUG
                                 _assert_graph_audience(obo_token)
                             except Exception as obo_err:
                                 logger.error("OBO exchange failed: %s", obo_err)
@@ -372,18 +339,10 @@ class FoundryAgent:
                         if not obo_token or not obo_token.strip():
                             logger.error("BUG: OBO token is empty at tool execution time")
                             raise ValueError("OBO token is empty. Cannot execute tool.")
-                        # Decode and print token claims for debugging
-                        try:
-                            payload = _decode_jwt_payload(obo_token)
-                            print(f"[FOUNDRY] Token claims: aud={payload.get('aud')} scp={payload.get('scp')}")  # DEBUG
-                        except Exception:
-                            print(f"[FOUNDRY] Could not decode token claims")  # DEBUG
-                        print(f"[FOUNDRY] About to invoke {item.name} with token_len={len(obo_token)}")  # DEBUG
                         try:
                             result = await tool.execute(token=obo_token, **kwargs)
                         except Exception as tool_err:
                             logger.error("Tool execution failed: %s %s", item.name, tool_err, exc_info=True)
-                            print(f"[FOUNDRY] Tool {item.name} raised exception: {type(tool_err).__name__}: {tool_err}")  # DEBUG
                             # Return error result to the model so it can retry or explain
                             error_msg = f"Tool error in {item.name}: {str(tool_err)}"
                             try:
@@ -394,9 +353,9 @@ class FoundryAgent:
                                 elif err_type == "GraphAuthError":
                                     error_msg = f"Authentication failed for {item.name}. Token may be expired. Please sign out and sign in again."
                                 elif err_type == "GraphRateLimitError":
-                                    error_msg = f"Microsoft Graph rate limit reached. Please retry shortly."
+                                    error_msg = "Microsoft Graph rate limit reached. Please retry shortly."
                                 elif err_type == "GraphServerError":
-                                    error_msg = f"Microsoft Graph service error. Please retry shortly."
+                                    error_msg = "Microsoft Graph service error. Please retry shortly."
                                 elif hasattr(tool_err, 'errors') and callable(tool_err.errors):
                                     # Pydantic validation error
                                     errors = tool_err.errors()
@@ -405,7 +364,7 @@ class FoundryAgent:
                             except Exception:
                                 pass  # Fall back to generic error message
                             result = {"error": error_msg}
-                        print(f"[FOUNDRY] Tool {item.name} completed")  # DEBUG
+                        result = self.guardrails.strip_pii_from_tool_output(result)
                         # await self._audit_logger.log(...)   # T14 audit hook
                         function_outputs.append(FunctionCallOutput(
                             type="function_call_output",
@@ -596,4 +555,4 @@ if __name__ == "__main__":
     load_dotenv()
     logging.basicConfig(level=logging.DEBUG)
     agent = FoundryAgent()
-    print("Foundry agent created:", agent.agent_id)
+    logger.info("Foundry agent created: %s", agent.agent_id)

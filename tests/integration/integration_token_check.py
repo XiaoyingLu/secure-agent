@@ -1,5 +1,4 @@
 import asyncio
-import os
 import msal
 from secure_agent.config import Settings
 from secure_agent.auth.token_validator import EntraJWTValidator

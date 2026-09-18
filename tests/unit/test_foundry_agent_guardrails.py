@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -185,3 +185,32 @@ async def test_chat_exchanges_user_token_before_tool_execution() -> None:
             "argument_keys": ["query"],
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_chat_redacts_tool_output_before_returning_to_model() -> None:
+    tool = _Tool()
+    agent = _make_agent(
+        tool_map={"lookup": tool},
+        responses=[
+            MockResponse(
+                output=[
+                    MockResponseItem(
+                        type="function_call",
+                        name="lookup",
+                        arguments=json.dumps({"query": "inbox"}),
+                        call_id="call-1",
+                    )
+                ],
+                output_text="",
+            ),
+            MockResponse(output=[], output_text="final"),
+        ],
+    )
+    agent._obo_client.exchange = AsyncMock(return_value="graph-obo-token")
+
+    await agent.chat("hello", "incoming-api-token", None)
+
+    follow_up = agent._openai.responses.create.call_args_list[1]
+    outputs = follow_up[1]["input"]
+    assert json.loads(outputs[0]["output"]) == {"redacted": "Email [email]"}

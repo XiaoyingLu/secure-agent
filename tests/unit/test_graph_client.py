@@ -4,7 +4,6 @@ import pytest
 from secure_agent.graph.graph_client import (
     GraphAuthError,
     GraphClient,
-    GraphClientError,
     GraphPermissionError,
     GraphRateLimitError,
     GraphServerError,

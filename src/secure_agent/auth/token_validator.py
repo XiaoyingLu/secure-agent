@@ -208,7 +208,6 @@ class EntraJWTMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.exclude_paths:
             return await call_next(request)
 
-        print(f"Validating JWT for path: {request.url.path}")  # Debugging line
         validator = self._resolve_validator(request)
         if validator is None:
             return JSONResponse(
@@ -316,4 +315,5 @@ async def validate_azure_token(
 
 
 if __name__ == "__main__":
-    print("Testing Azure token validation...")
+    logging.basicConfig(level=logging.INFO)
+    logger.info("Testing Azure token validation...")

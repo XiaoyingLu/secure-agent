@@ -137,11 +137,6 @@ class GraphClient:
         if not token or not token.strip():
             raise ValueError("Authorization token must not be empty or whitespace")
         auth_header = f"Bearer {token}"
-        print(f"[GRAPH] Auth header: Bearer {token[:50]}...")  # DEBUG
-        print(f"[GRAPH] Token length: {len(token)}")  # DEBUG
-        print(f"[GRAPH] Token starts with: {repr(token[:20])}")  # DEBUG - show any whitespace
-        print(f"[GRAPH] Token ends with: {repr(token[-20:])}")  # DEBUG
-        print(f"[GRAPH] Full auth header: {repr(auth_header[:100])}")  # DEBUG - see exact format
         logger.debug(
             "Graph auth header: Bearer %s... (len=%d)",
             token[:20],
@@ -201,8 +196,6 @@ class GraphClient:
         )
 
         if status == 401:
-            print(f"[GRAPH] 401 AUTH ERROR: code={code} message={graph_message}")  # DEBUG
-            print(f"[GRAPH] 401 ERROR response body: {response.text[:1000]}")  # DEBUG
             raise GraphAuthError(message, status, body)
 
         if status == 403:
@@ -256,10 +249,8 @@ class GraphClient:
         """
         url = f"{self._base_url}/me"
         logger.debug("GET %s", url)
-        print(f"[GRAPH] Testing /me endpoint to validate token")  # DEBUG
  
         response = await self._client.get(url, headers=self._auth_headers(token))
-        print(f"[GRAPH] /me response: status={response.status_code}")  # DEBUG
         self._raise_for_status(response)
         return response.json()
  
@@ -296,17 +287,10 @@ class GraphClient:
         logger.debug("GET %s top=%d filter_unread=%s", url, top, filter_unread)
         
         headers = self._auth_headers(token)
-        print(f"[GRAPH] Sending request to {url}")  # DEBUG
-        print(f"[GRAPH] Authorization header value: {repr(headers.get('Authorization', 'MISSING'))}")  # DEBUG - EXACT VALUE
-        print(f"[GRAPH] Headers being sent: {list(headers.keys())}")  # DEBUG
-        print(f"[GRAPH] Authorization header present: {'Authorization' in headers}")  # DEBUG
         
         response = await self._client.get(url, headers=headers, params=params)
-        print(f"[GRAPH] Response status={response.status_code}")  # DEBUG
         
         # Log what was actually sent (httpx request object)
-        print(f"[GRAPH] Actual request headers sent: {dict(response.request.headers)}")  # DEBUG - see what httpx actually sent
-        print(f"[GRAPH] Actual Auth header in request: {repr(response.request.headers.get('authorization', 'MISSING'))}")  # DEBUG
         
         self._raise_for_status(response)
         return response.json().get("value", [])
@@ -427,30 +411,8 @@ class GraphClient:
             **self._auth_headers(token),
             "Prefer": 'outlook.timezone="UTC"',
         }
-        print(f"[GRAPH] Token={token}")  # DEBUG
         logger.debug("GET %s start=%s end=%s", url, start_datetime, end_datetime)
-        print(f"[GRAPH] GET {url} with headers={list(headers.keys())}")  # DEBUG
-        
-        # Decode token for diagnostics (before sending to Graph)
-        try:
-            import base64
-            import json
-            parts = token.split(".")
-            if len(parts) >= 2:
-                padded = parts[1] + "=" * (-len(parts[1]) % 4)
-                payload = json.loads(base64.urlsafe_b64decode(padded))
-                aud = payload.get("aud", "NO_AUD")
-                scp = payload.get("scp", "NO_SCOPES")
-                print(f"[GRAPH] Token aud={aud} scp={scp}")  # DEBUG
-        except Exception as e:
-            print(f"[GRAPH] Could not decode token: {e}")  # DEBUG
-        
+
         response = await self._client.get(url, headers=headers, params=params)
-        print(f"[GRAPH] Response status={response.status_code}")  # DEBUG - calendar GET
-        
-        # Log what was actually sent (httpx request object)
-        print(f"[GRAPH] Actual request headers sent (calendarView): {dict(response.request.headers)}")  # DEBUG
-        print(f"[GRAPH] Actual Auth header in request (calendarView): {repr(response.request.headers.get('authorization', 'MISSING'))}")  # DEBUG
-        
         self._raise_for_status(response)
         return response.json().get("value", [])
