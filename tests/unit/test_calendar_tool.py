@@ -7,7 +7,7 @@ The mock path targets the GraphClient imported inside calendar_tool.py.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 

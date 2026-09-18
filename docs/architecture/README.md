@@ -292,21 +292,14 @@ edges worth closing:
 1. **Missing modules referenced by `CLAUDE.md`:** `cache/semantic_cache.py`
    (Redis semantic cache — `REDIS_CONNECTION_STRING` is required config but unused
    in code), `utils/logging.py`, `api/deps.py`, `src/main.py`, `src/mcp_server.py`.
-2. **No `Dockerfile` on this branch**, although `README.md`, `publish-acr.yml` and
-   `infra/main.bicep` all assume a container image build.
-3. **No `ci.yml`:** only `publish-acr.yml` exists, so `ruff`/`pyright`/`pytest` are
-   not enforced on PRs despite being mandated by the contributor guide.
-4. **Debug `print()` statements** remain across `foundry_agent.py`,
-   `graph_client.py`, `obo_client.py`, `rbac.py` and `token_validator.py`, some of
-   which print token prefixes and full claim sets — contrary to the project's
-   logging rules and a token-leak risk in production logs.
-5. **Duplicate legacy config:** `src/config.py` shadows
-   `src/secure_agent/config.py`.
-6. **Audit logging is demo-only and in-memory**, not the Azure Table Storage
+2. **Audit logging is demo-only and in-memory**, not the Azure Table Storage
    write-before-return path the security requirements describe; the agent's own
    audit hook in `foundry_agent.py` is still a comment.
-7. **PII redaction is bypassed on the main path:** `strip_pii_from_tool_output()`
-   is applied in `_execute_tool_call()`, which the Responses-API loop no longer
-   calls — tool output currently reaches the model unredacted.
-8. **Deployment is public-endpoint:** no VNet/private endpoints or APIM
+3. **Deployment is public-endpoint:** no VNet/private endpoints or APIM
    `validate-jwt` fronting, both of which the target architecture requires.
+4. **`pyright` is not yet enforced:** CI runs `ruff` and the unit suite; strict
+   type checking still fails on this branch and is left as follow-up work.
+
+Closed since the first revision of this document: the token-leaking debug
+`print()` calls, the PII-redaction bypass on the Responses-API loop, the missing
+`Dockerfile` and `ci.yml`, and the duplicate `src/config.py`.

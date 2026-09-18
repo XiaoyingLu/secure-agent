@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 from unittest.mock import AsyncMock
 
 from secure_agent.agent.foundry_agent import AgentResponse

@@ -119,9 +119,6 @@ class OBOClient:
             has_access_token,
             granted_scopes,
         )
-        print(f"[OBO] Exchange result: keys={sorted(result_keys)} has_error={has_error} has_access_token={has_access_token}")  # DEBUG
-        print(f"[OBO] Requested scopes: {scopes}")  # DEBUG
-        print(f"[OBO] Granted scopes: {granted_scopes}")  # DEBUG
 
         if "error" in result:
             description = result.get("error_description") or result["error"]
